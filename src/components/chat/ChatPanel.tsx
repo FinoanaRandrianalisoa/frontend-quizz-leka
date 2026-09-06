@@ -68,7 +68,9 @@ export default function ChatPanel({ spectators = 12, className = "", inputId, ma
   useEffect(() => {
     if (matchId == null) return;
     const token = typeof localStorage !== "undefined" ? localStorage.getItem("access_token") : null;
-    const apiBase = (import.meta.env.VITE_API_URL as string | undefined) || "https://quizz-leka.onrender.com";
+    const apiBase =
+  (import.meta.env.VITE_API_URL as string | undefined) ||
+  "https://quizz-leka.onrender.com/graphql/";
     const wsBase = (import.meta.env.VITE_WS_URL as string | undefined) || apiBase.replace(/^http/, "ws");
     const url = `${wsBase}/ws/match/${String(matchId)}/?token=${encodeURIComponent(token ?? "")}`;
     const ws = new WebSocket(url);
