@@ -191,10 +191,9 @@ export default function RabbitRacePage({ onNavigate, matchId }: { onNavigate?: (
   useEffect(() => {
     if (!currentMatchId) return;
     const token = typeof localStorage !== "undefined" ? localStorage.getItem("access_token") : null;
-    const apiBase =
-  (import.meta.env.VITE_API_URL as string | undefined) ||
-  "https://quizz-leka.onrender.com/graphql/";
-    const wsBase = (import.meta.env.VITE_WS_URL as string | undefined) || apiBase.replace(/^http/, "ws");
+    const apiBase = (import.meta.env.VITE_API_URL as string | undefined) || "https://quizz-leka.onrender.com/graphql/";
+    const apiRoot = apiBase.replace(/\/graphql\/?$/, "");
+    const wsBase = (import.meta.env.VITE_WS_URL as string | undefined) || apiRoot.replace(/^http/, "ws");
     const ws = new WebSocket(`${wsBase}/ws/match/${String(currentMatchId)}/?token=${encodeURIComponent(token ?? "")}`);
     socketRef.current = ws;
 

@@ -159,10 +159,9 @@ export default function RpsMatchPage({ onNavigate }: { onNavigate?: (p: string, 
     const token = typeof localStorage !== "undefined" ? localStorage.getItem("access_token") : null;
     if (!match || !token) return;
 
-    const apiBase =
-  (import.meta.env.VITE_API_URL as string | undefined) ||
-  "https://quizz-leka.onrender.com/graphql/";
-    const wsBase = (import.meta.env.VITE_WS_URL as string | undefined) || apiBase.replace(/^http/, "ws");
+    const apiBase = (import.meta.env.VITE_API_URL as string | undefined) || "https://quizz-leka.onrender.com/graphql/";
+    const apiRoot = apiBase.replace(/\/graphql\/?$/, "");
+    const wsBase = (import.meta.env.VITE_WS_URL as string | undefined) || apiRoot.replace(/^http/, "ws");
     const ws = new WebSocket(`${wsBase}/ws/rps/${match.id}/?token=${encodeURIComponent(token)}`);
     socketRef.current = ws;
 

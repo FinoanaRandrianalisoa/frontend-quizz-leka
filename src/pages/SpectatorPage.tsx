@@ -82,10 +82,9 @@ export default function SpectatorPage({ onNavigate, matchId }: SpectatorPageProp
     if (!selectedMatch) return;
     
     const token = typeof localStorage !== "undefined" ? localStorage.getItem("access_token") : null;
-    const apiBase =
-  (import.meta.env.VITE_API_URL as string | undefined) ||
-  "https://quizz-leka.onrender.com/graphql/";
-    const wsBase = (import.meta.env.VITE_WS_URL as string | undefined) || apiBase.replace(/^http/, "ws");
+    const apiBase = (import.meta.env.VITE_API_URL as string | undefined) || "https://quizz-leka.onrender.com/graphql/";
+    const apiRoot = apiBase.replace(/\/graphql\/?$/, "");
+    const wsBase = (import.meta.env.VITE_WS_URL as string | undefined) || apiRoot.replace(/^http/, "ws");
     const url = `${wsBase}/ws/match/${String(selectedMatch.id)}/?token=${encodeURIComponent(token ?? "")}`;
     const ws = new WebSocket(url);
     socketRef.current = ws;
