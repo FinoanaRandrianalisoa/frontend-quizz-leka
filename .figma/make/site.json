@@ -1,0 +1,10 @@
+{
+  "description": "Engage in multiplayer quizzes focused on Malagasy culture with real-time gameplay, chat, leaderboards, and spectator modes on any device.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
