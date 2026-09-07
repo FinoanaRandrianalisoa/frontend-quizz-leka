@@ -106,27 +106,66 @@ export default function TopNav({ currentPage, onNavigate }: TopNavProps) {
     const apiBase = (import.meta.env.VITE_API_URL as string | undefined) || "https://quizz-leka.onrender.com/graphql/";
     const apiRoot = apiBase.replace(/\/graphql\/?$/, "");
     const wsBase = (import.meta.env.VITE_WS_URL as string | undefined) || apiRoot.replace(/^http/, "ws");
-    const socket = new WebSocket(`${wsBase}/ws/notifications/?token=${encodeURIComponent(token)}`);
 
-    socket.onmessage = (event) => {
-      try {
-        const payload = JSON.parse(event.data) as { type?: string; message?: string; titre?: string; lu?: boolean; id?: string | number };
-        if (!payload || typeof payload !== "object") return;
-        if (payload.lu === true) return;
-        if (payload.type === "message") {
-          setUnreadMessagesCount((c) => c + 1);
-        } else {
-          setNotificationCount((current) => current + 1);
-        }
-        window.dispatchEvent(new CustomEvent("notifications:refresh", { detail: payload }));
-      } catch {
-        setNotificationCount((current) => current + 1);
-        window.dispatchEvent(new CustomEvent("notifications:refresh"));
-      }
+    let socket: WebSocket | null = null;
+    let reconnectAttempts = 0;
+    let shouldStop = false;
+
+    const scheduleReconnect = () => {
+      if (shouldStop) return;
+      reconnectAttempts += 1;
+      const delay = Math.min(30000, Math.pow(2, Math.min(6, reconnectAttempts)) * 1000);
+      // debug
+      // console.info(`WebSocket reconnect attempt ${reconnectAttempts} in ${delay}ms`);
+      window.setTimeout(() => {
+        if (!shouldStop) connect();
+      }, delay);
     };
 
-    socket.onerror = () => undefined;
-    socket.onclose = () => undefined;
+    const connect = () => {
+      const url = `${wsBase}/ws/notifications/?token=${encodeURIComponent(token)}`;
+      try {
+        socket = new WebSocket(url);
+      } catch (err) {
+        console.error("WebSocket: failed to create socket", err);
+        scheduleReconnect();
+        return;
+      }
+
+      socket.onopen = () => {
+        reconnectAttempts = 0;
+        console.info("WebSocket connected to", url);
+      };
+
+      socket.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data) as { type?: string; message?: string; titre?: string; lu?: boolean; id?: string | number };
+          if (!payload || typeof payload !== "object") return;
+          if (payload.lu === true) return;
+          if (payload.type === "message") {
+            setUnreadMessagesCount((c) => c + 1);
+          } else {
+            setNotificationCount((current) => current + 1);
+          }
+          window.dispatchEvent(new CustomEvent("notifications:refresh", { detail: payload }));
+        } catch (e) {
+          setNotificationCount((current) => current + 1);
+          window.dispatchEvent(new CustomEvent("notifications:refresh"));
+        }
+      };
+
+      socket.onerror = (e) => {
+        console.error("WebSocket error", e);
+      };
+
+      socket.onclose = (ev) => {
+        if (shouldStop) return;
+        console.warn("WebSocket closed", ev);
+        scheduleReconnect();
+      };
+    };
+
+    connect();
 
     const interval = window.setInterval(() => {
       void loadNotifications();
@@ -146,7 +185,10 @@ export default function TopNav({ currentPage, onNavigate }: TopNavProps) {
 
     return () => {
       active = false;
-      socket.close();
+      shouldStop = true;
+      try {
+        socket?.close();
+      } catch {}
       window.clearInterval(interval);
       window.removeEventListener("messagesRead", onMessagesRead as EventListener);
       window.removeEventListener("notifications:refresh", onNotificationsRefresh as EventListener);
