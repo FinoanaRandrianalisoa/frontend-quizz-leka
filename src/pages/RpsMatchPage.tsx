@@ -3,6 +3,7 @@ import { Button, Card, CardContent, Badge } from "../components/ui";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import usePageTitle from "@/lib/usePageTitle";
+import { BACKEND_URL, GRAPHQL_URL, WS_URL } from '@/config/backend'
 
 const MOVES = ["pierre", "papier", "ciseaux"] as const;
 type Move = (typeof MOVES)[number];
@@ -159,9 +160,9 @@ export default function RpsMatchPage({ onNavigate }: { onNavigate?: (p: string, 
     const token = typeof localStorage !== "undefined" ? localStorage.getItem("access_token") : null;
     if (!match || !token) return;
 
-    const apiBase = (import.meta.env.VITE_API_URL as string | undefined) || "https://quizz-leka.onrender.com/graphql/";
-    const apiRoot = apiBase.replace(/\/graphql\/?$/, "");
-    const wsBase = (import.meta.env.VITE_WS_URL as string | undefined) || apiRoot.replace(/^http/, "ws");
+    const apiBase = GRAPHQL_URL;
+    const apiRoot = BACKEND_URL;
+    const wsBase = WS_URL;
     const ws = new WebSocket(`${wsBase}/ws/rps/${match.id}/?token=${encodeURIComponent(token)}`);
     socketRef.current = ws;
 

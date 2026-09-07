@@ -36,11 +36,11 @@ export default defineConfig(({ mode }) => {
       watch: { ignored: ['**/.figma/**'] },
       proxy: {
         '/graphql': {
-          target: process.env.VITE_API_URL?.replace(/\/graphql\/?$/, '') || 'https://quizz-leka.onrender.com',
+          target: process.env.VITE_BACKEND_URL?.replace(/\/graphql\/?$/, '') || 'https://quizz-leka-production.up.railway.app',
           changeOrigin: true,
         },
         '/ws': {
-          target: process.env.VITE_WS_URL || 'wss://quizz-leka.onrender.com',
+          target: process.env.VITE_WS_URL || 'wss://quizz-leka-production.up.railway.app',
           ws: true,
           changeOrigin: true,
         },

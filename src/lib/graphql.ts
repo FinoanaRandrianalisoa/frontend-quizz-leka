@@ -7,7 +7,7 @@ export class GraphqlError extends Error {
   }
 }
 
-const GRAPHQL_URL = import.meta.env.VITE_API_URL || "https://quizz-leka.onrender.com/graphql/";
+import { GRAPHQL_URL } from '@/config/backend'
 
 export async function gql<T>(
   query: string,

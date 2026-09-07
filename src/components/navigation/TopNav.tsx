@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage, Badge, Button, Tooltip, useToast } from "../ui";
 import { useAuth } from "../../lib/auth";
+import { BACKEND_URL, GRAPHQL_URL, WS_URL } from '@/config/backend'
 import { initial, relativeTime } from "../../lib/format";
 import { errMsg } from "../../lib/hooks";
 import { api } from "../../lib/api";
@@ -103,9 +104,9 @@ export default function TopNav({ currentPage, onNavigate }: TopNavProps) {
 
     if (!token) return;
 
-    const apiBase = (import.meta.env.VITE_API_URL as string | undefined) || "https://quizz-leka.onrender.com/graphql/";
-    const apiRoot = apiBase.replace(/\/graphql\/?$/, "");
-    const wsBase = (import.meta.env.VITE_WS_URL as string | undefined) || apiRoot.replace(/^http/, "ws");
+    const apiBase = GRAPHQL_URL;
+    const apiRoot = BACKEND_URL;
+    const wsBase = WS_URL;
 
     let socket: WebSocket | null = null;
     let reconnectAttempts = 0;

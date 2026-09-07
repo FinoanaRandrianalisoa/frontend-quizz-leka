@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Send, Smile, Users } from "lucide-react";
 import { Avatar, AvatarFallback, Button, ScrollArea } from "../ui";
 import { useAuth } from "../../lib/auth";
+import { BACKEND_URL, GRAPHQL_URL, WS_URL } from '@/config/backend'
 
 interface Message {
   id: number;
@@ -68,9 +69,9 @@ export default function ChatPanel({ spectators = 12, className = "", inputId, ma
   useEffect(() => {
     if (matchId == null) return;
     const token = typeof localStorage !== "undefined" ? localStorage.getItem("access_token") : null;
-    const apiBase = (import.meta.env.VITE_API_URL as string | undefined) || "https://quizz-leka.onrender.com/graphql/";
-    const apiRoot = apiBase.replace(/\/graphql\/?$/, "");
-    const wsBase = (import.meta.env.VITE_WS_URL as string | undefined) || apiRoot.replace(/^http/, "ws");
+    const apiBase = GRAPHQL_URL;
+    const apiRoot = BACKEND_URL;
+    const wsBase = WS_URL;
     const url = `${wsBase}/ws/match/${String(matchId)}/?token=${encodeURIComponent(token ?? "")}`;
     const ws = new WebSocket(url);
     socketRef.current = ws;

@@ -8,6 +8,7 @@ import { errMsg } from "../lib/hooks";
 import UserName from "../components/UserName";
 import type { NavigateFn } from "../App";
 import usePageTitle from "@/lib/usePageTitle";
+import { BACKEND_URL, GRAPHQL_URL, WS_URL } from '@/config/backend'
 
 const TARGETS = [4, 8, 12] as const;
 const LETTERS = ["A", "B", "C", "D"] as const;
@@ -80,9 +81,9 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
   useEffect(() => {
     if (!game?.gameId) return;
     const token = localStorage.getItem("access_token") || "";
-    const apiBase = (import.meta.env.VITE_API_URL as string | undefined) || "https://quizz-leka.onrender.com/graphql/";
-    const apiRoot = apiBase.replace(/\/graphql\/?$/, "");
-    const wsBase = (import.meta.env.VITE_WS_URL as string | undefined) || apiRoot.replace(/^http/, "ws");
+    const apiBase = GRAPHQL_URL;
+    const apiRoot = BACKEND_URL;
+    const wsBase = WS_URL;
     const ws = new WebSocket(`${wsBase}/ws/quiz-global/${game.gameId}/?token=${encodeURIComponent(token)}`);
     socketRef.current = ws;
     ws.onmessage = (event) => {
