@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Globe, Users } from "lucide-react";
-import { Button, Card, CardContent } from "../components/ui";
+import { Globe, Users, MessageCircle, X, Repeat } from "lucide-react";
+import { Button, Card, CardContent, Sheet, SheetHeader, SheetTitle, SheetContent } from "../components/ui";
 import { api } from "../lib/api";
 import { quizGlobalApi, type QuizGlobalState } from "../lib/quizGlobalApi";
 import { useAuth } from "../lib/auth";
 import { errMsg } from "../lib/hooks";
 import UserName from "../components/UserName";
+import QuizTimer from "../components/game/QuizTimer";
+import ChatPanel from "../components/chat/ChatPanel";
 import type { NavigateFn } from "../App";
 import usePageTitle from "@/lib/usePageTitle";
 import { BACKEND_URL, GRAPHQL_URL, WS_URL } from '@/config/backend'
@@ -17,6 +19,13 @@ function remainingSeconds(deadline?: string | null, serverOffset = 0) {
   if (!deadline) return 0;
   const dead = new Date(deadline).getTime();
   return Math.max(0, Math.ceil((dead - (Date.now() - serverOffset)) / 1000));
+}
+
+function phaseDuration(state: QuizGlobalState | null) {
+  if (!state?.phaseDeadline || !state.phaseStartedAt) return null;
+  const start = new Date(state.phaseStartedAt).getTime();
+  const dead = new Date(state.phaseDeadline).getTime();
+  return Math.max(1, Math.round((dead - start) / 1000));
 }
 
 function withServerOffset(state: QuizGlobalState): QuizGlobalState {
@@ -37,7 +46,17 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
   const [tick, setTick] = useState(0);
   const [ackStatus, setAckStatus] = useState<string | null>(null);
   const [myPick, setMyPick] = useState<string | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [tieBreakIntro, setTieBreakIntro] = useState(false);
   const socketRef = useRef<WebSocket | null>(null);
+
+  useEffect(() => {
+    if (game?.question?.isTieBreak && game.status === "QUESTION_READING") {
+      setTieBreakIntro(true);
+      const t = setTimeout(() => setTieBreakIntro(false), 2600);
+      return () => clearTimeout(t);
+    }
+  }, [game?.status, game?.question?.id]);
 
   useEffect(() => {
     void api.utilisateurs().then((res) => {
@@ -224,6 +243,22 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
     return "Gagnant";
   }, [game]);
 
+  const startRematch = async () => {
+    if (!game) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await quizGlobalApi.revanche(game.gameId);
+      const next = withServerOffset(res.revanchePartieQuizGlobal);
+      setGame(next);
+      onNavigate("quizGlobal", next.gameId);
+    } catch (err) {
+      setError(errMsg(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (!game) {
     return (
       <div className="max-w-6xl mx-auto px-4 md:px-6 py-8">
@@ -298,17 +333,27 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
     );
   }
 
+  const phaseLen = phaseDuration(game) ?? 10;
+
   return (
-    <div className="max-w-4xl mx-auto px-4 md:px-6 py-8">
-      <div className="flex items-center justify-between mb-4">
+    <div className="max-w-6xl mx-auto px-4 md:px-6 py-8 flex gap-6 items-start">
+      <div className="flex-1 min-w-0 max-w-4xl mx-auto w-full">
+        <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <div>
-          <h1 className="text-xl font-bold">Quizz global</h1>
+          <h1 className="text-xl font-bold flex items-center gap-2">
+            <Globe size={20} className="text-[#16a34a]" /> Quizz global
+          </h1>
           <p className="text-sm text-[#64748b]">
             {game.playerA?.pseudo ?? "A"} {game.playerA?.score ?? 0} — {game.playerB?.score ?? 0} {game.playerB?.pseudo ?? "en attente"}
-            {" · "}Tour {game.currentTurn}/{game.targetQuestions}{game.question?.isTieBreak ? " · Tie-Break" : ""}
+            {" · "}Tour {game.currentTurn}/{game.targetQuestions}{game.question?.isTieBreak ? " · ⚡ Tie-Break" : ""}
           </p>
         </div>
-        <Button variant="outline" onClick={() => { setGame(null); onNavigate("categories"); }}>Quitter</Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" className="lg:hidden gap-2" onClick={() => setChatOpen(true)}>
+            <MessageCircle size={16} /> Chat
+          </Button>
+          <Button variant="outline" onClick={() => { setGame(null); onNavigate("categories"); }}>Quitter</Button>
+        </div>
       </div>
       {error && <p className="mb-4 text-sm text-[#D62828]">{error}</p>}
 
@@ -341,11 +386,42 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
 
       {game.status === "QUESTION_READING" && game.question && (
         <Card>
-          <CardContent className="text-center space-y-4 py-10">
-            <p className="text-sm font-semibold text-[#16a34a]">🇲🇬 {game.question.theme}</p>
-            <p className="text-2xl font-bold">{game.question.question}</p>
-            <p className="text-5xl font-black tabular-nums">{seconds}</p>
-            <p className="text-sm text-[#64748b]">Les réponses arrivent bientôt…</p>
+          <CardContent className="text-center space-y-5 py-10">
+            {game.question.isTieBreak && tieBreakIntro ? (
+              <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#FF8C1A] via-[#D62828] to-[#8B0000] text-white px-6 py-12 animate-fade-in-scale">
+                <div className="absolute inset-0 opacity-25" style={{ background: "radial-gradient(circle at 50% 35%, rgba(255,215,0,0.95) 0%, transparent 55%)" }} />
+                <div className="absolute -top-6 -right-6 text-[120px] leading-none opacity-20 select-none">⚡</div>
+                <div className="relative flex flex-col items-center gap-3">
+                  <div className="text-5xl animate-tie-break">⚡</div>
+                  <p className="text-[11px] font-black tracking-[0.35em] text-white/80">MANCHE DÉCISIVE</p>
+                  <h2 className="text-4xl sm:text-5xl font-black tracking-[0.12em] text-grad-gold">TIE-BREAK</h2>
+                  <div className="flex items-center gap-1.5 mt-2">
+                    {[0, 1, 2].map((i) => (
+                      <span
+                        key={i}
+                        className="h-2.5 w-2.5 rounded-full bg-[#FFD700] animate-live-pulse"
+                        style={{ animationDelay: `${i * 0.2}s` }}
+                      />
+                    ))}
+                  </div>
+                  <p className="text-sm text-white/85">La question décisive arrive…</p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-center gap-5">
+                  <div className="hidden sm:block">
+                    <QuizTimer duration={phaseLen} remaining={seconds} variant="circular" size="lg" />
+                  </div>
+                  <div className="sm:hidden w-full max-w-xs">
+                    <QuizTimer duration={phaseLen} remaining={seconds} variant="linear" />
+                  </div>
+                </div>
+                <p className="text-sm font-semibold text-[#16a34a]">🇲🇬 {game.question.theme}</p>
+                <p className="text-2xl font-bold">{game.question.question}</p>
+                <p className="text-sm text-[#64748b]">Les réponses arrivent bientôt…</p>
+              </>
+            )}
           </CardContent>
         </Card>
       )}
@@ -353,9 +429,16 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
       {game.status === "ANSWERING" && game.question?.options && (
         <Card>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3">
               <p className="text-sm font-semibold text-[#16a34a]">🇲🇬 {game.question.theme}</p>
-              <p className="text-3xl font-black tabular-nums">{seconds}</p>
+              <div className="flex items-center gap-3">
+                <div className="hidden sm:block">
+                  <QuizTimer duration={phaseLen} remaining={seconds} variant="circular" size="sm" />
+                </div>
+                <div className="sm:hidden w-36">
+                  <QuizTimer duration={phaseLen} remaining={seconds} variant="linear" />
+                </div>
+              </div>
             </div>
             <p className="text-xl font-bold">{game.question.question}</p>
             {(ackStatus === "INCORRECT" || game.myAnswer?.status === "INCORRECT") && (
@@ -386,9 +469,16 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
       {(game.status === "QUESTION_FINISHED" || game.status === "FINISHED") && game.question && (
         <Card>
           <CardContent className="space-y-3">
-            <p className="text-sm font-semibold text-[#16a34a]">
-              Bonne réponse : {game.question.correctOption}. {game.question.correctText}
-            </p>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-[#16a34a]">
+                Bonne réponse : {game.question.correctOption}. {game.question.correctText}
+              </p>
+              {game.status === "QUESTION_FINISHED" && (
+                <div className="w-28 shrink-0">
+                  <QuizTimer duration={phaseLen} remaining={seconds} variant="linear" />
+                </div>
+              )}
+            </div>
             {(game.results ?? []).map((r) => {
               const letter = r.selectedOption;
               const optText = letter ? (game.question?.options as Record<string, string> | undefined)?.[letter] : null;
@@ -409,11 +499,34 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
             })}
             <p className="font-semibold">Score : {game.playerA?.pseudo} {game.playerA?.score} — {game.playerB?.score} {game.playerB?.pseudo}</p>
             {game.status === "FINISHED" && (
-              <p className="text-lg font-bold">{winnerName ? <>🏆 {winnerName} gagne</> : <>🤝 Égalité</>}</p>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl bg-[#f1faf5] border border-[#06A77D]/30 p-4">
+                <p className="text-lg font-bold">{winnerName ? <>🏆 {winnerName} gagne</> : <>🤝 Égalité</>}</p>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => onNavigate("categories")}>Retour</Button>
+                  <Button size="sm" className="gap-2" onClick={() => void startRematch()} loading={busy}>
+                    <Repeat size={15} /> Revanche
+                  </Button>
+                </div>
+              </div>
             )}
           </CardContent>
         </Card>
       )}
+      </div>
+
+      <div className="hidden lg:flex w-72 xl:w-80 shrink-0 sticky top-8">
+        <ChatPanel room="quizGlobal" matchId={game.gameId} spectators={0} className="flex-1 rounded-2xl border border-[#e6f4ea] border-l-0" />
+      </div>
+
+      <Sheet open={chatOpen} onClose={() => setChatOpen(false)} side="right">
+        <SheetHeader>
+          <SheetTitle>Chat en direct</SheetTitle>
+          <button onClick={() => setChatOpen(false)}><X size={20} /></button>
+        </SheetHeader>
+        <SheetContent>
+          <ChatPanel room="quizGlobal" matchId={game.gameId} spectators={0} className="h-full" />
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

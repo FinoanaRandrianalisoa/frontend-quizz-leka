@@ -6,22 +6,26 @@ interface QuizTimerProps {
   variant?: "circular" | "linear";
   running?: boolean;
   size?: "sm" | "md" | "lg";
+  /** Valeur pilotée de l'extérieur (ex. deadline serveur). Quand elle est fournie, le compte à rebours interne est désactivé. */
+  remaining?: number | null;
 }
 
-export default function QuizTimer({ duration, onExpire, variant = "circular", running = true, size = "md" }: QuizTimerProps) {
-  const [remaining, setRemaining] = useState(duration);
+export default function QuizTimer({ duration, onExpire, variant = "circular", running = true, size = "md", remaining = null }: QuizTimerProps) {
+  const [internalRemaining, setInternalRemaining] = useState(duration);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const expiredRef = useRef(false);
+  const controlled = remaining !== null;
 
   useEffect(() => {
-    setRemaining(duration);
+    setInternalRemaining(duration);
     expiredRef.current = false;
   }, [duration]);
 
   useEffect(() => {
+    if (controlled) { clearInterval(intervalRef.current!); return; }
     if (!running) { clearInterval(intervalRef.current!); return; }
     intervalRef.current = setInterval(() => {
-      setRemaining(r => {
+      setInternalRemaining(r => {
         if (r <= 1) {
           clearInterval(intervalRef.current!);
           if (!expiredRef.current) { expiredRef.current = true; onExpire?.(); }
@@ -31,11 +35,12 @@ export default function QuizTimer({ duration, onExpire, variant = "circular", ru
       });
     }, 1000);
     return () => clearInterval(intervalRef.current!);
-  }, [running, duration]);
+  }, [running, duration, controlled]);
 
-  const pct   = remaining / duration;
+  const remainingSeconds = controlled ? Math.round(remaining) : internalRemaining;
+  const pct   = duration > 0 ? remainingSeconds / duration : 0;
   const color = pct > 0.5 ? "#FF6B35" : pct > 0.25 ? "#F59E0B" : "#D62828";
-  const urgent = pct <= 0.3 && remaining > 0;
+  const urgent = pct <= 0.3 && remainingSeconds > 0;
 
   if (variant === "linear") {
     return (
@@ -43,7 +48,7 @@ export default function QuizTimer({ duration, onExpire, variant = "circular", ru
         <div className="flex items-center justify-between mb-1.5">
           <span className="text-xs font-medium text-[#A0A0A0]">Temps restant</span>
           <span className={`text-sm font-black tabular-nums ${urgent ? "text-[#D62828] animate-[countdownBlink_0.8s_ease-in-out_infinite]" : "text-[#FF6B35]"}`}>
-            {remaining}s
+            {remainingSeconds}s
           </span>
         </div>
         <div className="w-full h-2.5 bg-[#F0F0F0] rounded-full overflow-hidden">
@@ -94,12 +99,9 @@ export default function QuizTimer({ duration, onExpire, variant = "circular", ru
       <div className={`z-10 flex flex-col items-center ${urgent ? "animate-[timerPulse_0.6s_ease-in-out_infinite]" : ""}`}>
         <span
           className="font-black tabular-nums leading-none"
-          style={{
-            color,
-            fontSize: size === "lg" ? 36 : size === "md" ? 28 : 20,
-          }}
+          style={{ color, fontSize: size === "lg" ? 36 : size === "md" ? 28 : 20 }}
         >
-          {remaining}
+          {remainingSeconds}
         </span>
         {size !== "sm" && (
           <span className="text-[10px] text-[#A0A0A0] font-medium mt-0.5">sec</span>

@@ -136,4 +136,10 @@ export const quizGlobalApi = {
       { id: gameId },
     );
   },
+  revanche(gameId: number) {
+    return gql<{ revanchePartieQuizGlobal: QuizGlobalState }>(
+      `mutation($id: Int!) { revanchePartieQuizGlobal(gameId: $id) { ${STATE} } }`,
+      { id: gameId },
+    );
+  },
 };

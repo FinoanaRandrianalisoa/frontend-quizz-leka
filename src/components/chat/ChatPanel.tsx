@@ -19,9 +19,10 @@ interface ChatPanelProps {
   className?: string;
   inputId?: string;
   matchId?: string | number | null;
+  room?: "match" | "quizGlobal";
 }
 
-export default function ChatPanel({ spectators = 12, className = "", inputId, matchId = null }: ChatPanelProps) {
+export default function ChatPanel({ spectators = 12, className = "", inputId, matchId = null, room = "match" }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -72,7 +73,8 @@ export default function ChatPanel({ spectators = 12, className = "", inputId, ma
     const apiBase = GRAPHQL_URL;
     const apiRoot = BACKEND_URL;
     const wsBase = WS_URL;
-    const url = `${wsBase}/ws/match/${String(matchId)}/?token=${encodeURIComponent(token ?? "")}`;
+    const path = room === "quizGlobal" ? "quiz-global" : "match";
+    const url = `${wsBase}/ws/${path}/${String(matchId)}/?token=${encodeURIComponent(token ?? "")}`;
     const ws = new WebSocket(url);
     socketRef.current = ws;
 
@@ -109,7 +111,7 @@ export default function ChatPanel({ spectators = 12, className = "", inputId, ma
       }
       socketRef.current = null;
     };
-  }, [matchId]);
+  }, [matchId, room]);
 
   return (
     <div className={`flex flex-col bg-white border-l border-[#D9D9D9] ${className}`}>
