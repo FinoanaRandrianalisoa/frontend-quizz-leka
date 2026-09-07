@@ -209,9 +209,9 @@ export type FinanceAdmin = {
 
 export const api = {
   login(identifiant: string, password: string) {
-    return gql<{ login: { accessToken: string; utilisateur: Utilisateur } }>(
+    return gql<{ login: { accessToken: string; refreshToken: string; utilisateur: Utilisateur } }>(
       `mutation($identifiant: String!, $password: String!) {
-        login(email: $identifiant, password: $password) { accessToken utilisateur { ${USER_FIELDS} } }
+        login(email: $identifiant, password: $password) { accessToken refreshToken utilisateur { ${USER_FIELDS} } }
       }`,
       { identifiant, password },
       null,
@@ -229,9 +229,9 @@ export const api = {
     photoProfil = "",
     photoCouverture = "",
   ) {
-    return gql<{ register: { accessToken: string; utilisateur: Utilisateur } }>(
+    return gql<{ register: { accessToken: string; refreshToken: string; utilisateur: Utilisateur } }>(
       `mutation($input: RegisterInput!) {
-        register(input: $input) { accessToken utilisateur { ${USER_FIELDS} } }
+        register(input: $input) { accessToken refreshToken utilisateur { ${USER_FIELDS} } }
       }`,
       { input: { email, pseudo, password, firstName, lastName, dateNaissance, telephone, villeOrigine, photoProfil, photoCouverture } },
       null,

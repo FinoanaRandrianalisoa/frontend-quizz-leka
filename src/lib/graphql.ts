@@ -9,6 +9,52 @@ export class GraphqlError extends Error {
 
 import { GRAPHQL_URL } from '@/config/backend'
 
+const REFRESH_MUTATION = `
+  mutation($refreshToken: String!) {
+    refreshToken(refreshToken: $refreshToken) {
+      accessToken
+      refreshToken
+    }
+  }
+`;
+
+let refreshInFlight: Promise<string | null> | null = null;
+
+async function rawRefresh(): Promise<string | null> {
+  const refreshToken = typeof localStorage !== "undefined" ? localStorage.getItem("refresh_token") : null;
+  if (!refreshToken) return null;
+  let res: Response;
+  try {
+    res = await fetch(GRAPHQL_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: REFRESH_MUTATION, variables: { refreshToken } }),
+    });
+  } catch {
+    return null;
+  }
+  let json: { data?: { refreshToken?: { accessToken?: string; refreshToken?: string } } };
+  try {
+    json = await res.json();
+  } catch {
+    return null;
+  }
+  const tokens = json.data?.refreshToken;
+  if (!tokens?.accessToken || !tokens?.refreshToken) return null;
+  localStorage.setItem("access_token", tokens.accessToken);
+  localStorage.setItem("refresh_token", tokens.refreshToken);
+  return tokens.accessToken;
+}
+
+function refreshTokens(): Promise<string | null> {
+  if (refreshInFlight === null) {
+    refreshInFlight = rawRefresh().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
+}
+
 export async function gql<T>(
   query: string,
   variables?: Record<string, unknown>,
@@ -33,6 +79,15 @@ export async function gql<T>(
 
   if (json.errors?.length) {
     const first = json.errors[0];
+    if (
+      token === undefined &&
+      first.extensions?.code === "PERMISSION_DENIED" &&
+      typeof localStorage !== "undefined" &&
+      localStorage.getItem("refresh_token")
+    ) {
+      const fresh = await refreshTokens();
+      if (fresh) return gql(query, variables, fresh);
+    }
     throw new GraphqlError(first.message || "Erreur GraphQL", first.extensions?.code);
   }
   if (json.data === undefined || json.data === null) {

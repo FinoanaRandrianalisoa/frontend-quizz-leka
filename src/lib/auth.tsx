@@ -42,6 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       if (err instanceof GraphqlError && err.code === "PERMISSION_DENIED") {
         localStorage.removeItem("access_token");
+        localStorage.removeItem("refresh_token");
         setUser(null);
       }
     }
@@ -54,6 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (identifiant: string, password: string) => {
     const data = await api.login(identifiant, password);
     localStorage.setItem("access_token", data.login.accessToken);
+    localStorage.setItem("refresh_token", data.login.refreshToken);
     setUser(data.login.utilisateur);
   };
 
@@ -71,11 +73,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   ) => {
     const data = await api.register(email, pseudo, password, firstName, lastName, dateNaissance, telephone, villeOrigine, photoProfil, photoCouverture);
     localStorage.setItem("access_token", data.register.accessToken);
+    localStorage.setItem("refresh_token", data.register.refreshToken);
     setUser(data.register.utilisateur);
   };
 
   const logout = () => {
     localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
     setUser(null);
   };
 
