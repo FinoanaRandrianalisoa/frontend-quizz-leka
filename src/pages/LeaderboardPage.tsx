@@ -23,7 +23,7 @@ export default function LeaderboardPage() {
     <div className="max-w-4xl mx-auto px-4 md:px-6 py-6 pb-20 md:pb-8">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-[#2D3142]">Classement</h1>
-        <p className="text-sm text-[#A0A0A0]">Les meilleurs joueurs Quiz Mada selon les données du serveur</p>
+        <p className="text-sm text-[#A0A0A0]">Les meilleurs joueurs Quizz Leka selon les données du serveur</p>
       </div>
 
       <Tabs defaultValue="global" className="mb-6">

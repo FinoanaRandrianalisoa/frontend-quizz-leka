@@ -6,6 +6,6 @@ import { useEffect } from "react";
 
 export default function usePageTitle(title: string) {
   useEffect(() => {
-    document.title = `${title} | Quiz Mada`;
+    document.title = `${title} | Quizz Leka`;
   }, [title]);
 }

@@ -176,18 +176,18 @@ export default function AuthPage({ onSuccess, initialMode = "login" }: AuthPageP
 
   return (
     <div className="min-h-screen flex">
-      <div className="hidden lg:flex flex-col justify-center px-16 w-1/2 bg-gradient-to-br from-[#004E89] to-[#002952] text-white relative overflow-hidden">
+      <div className="hidden lg:flex flex-col justify-center px-16 w-1/2 bg-gradient-to-br from-[#16a34a] to-[#14532d] text-white relative overflow-hidden">
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-10">
-            <div className="w-12 h-12 rounded-xl bg-[#FF6B35] flex items-center justify-center">
-              <Gamepad2 size={24} className="text-white" />
+            <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center">
+              <Gamepad2 size={24} className="text-[#16a34a]" />
             </div>
-            <span className="text-3xl font-extrabold">Quiz<span className="text-[#FF6B35]">Mada</span></span>
+            <span className="text-3xl font-extrabold">Quizz <span className="text-[#86efac]">Leka</span></span>
           </div>
           <h1 className="text-4xl font-extrabold leading-tight mb-4">
             Teste tes connaissances.<br />
             Défie tes amis.<br />
-            <span className="text-[#FF6B35]">Découvre Madagascar.</span>
+            <span className="text-[#bbf7d0]">Découvre Madagascar.</span>
           </h1>
           <p className="text-white/70 text-lg max-w-md">
             Compte administrateur de lancement : admin@quizz.mg — mot de passe défini dans le backend.
@@ -198,10 +198,10 @@ export default function AuthPage({ onSuccess, initialMode = "login" }: AuthPageP
       <div className="flex-1 flex items-center justify-center px-4 py-8 bg-[#F9F9F9]">
         <div className="w-full max-w-md">
           <div className="flex items-center gap-2 mb-8 lg:hidden">
-            <div className="w-9 h-9 rounded-lg bg-[#FF6B35] flex items-center justify-center">
+            <div className="w-9 h-9 rounded-lg bg-[#16a34a] flex items-center justify-center">
               <Gamepad2 size={18} className="text-white" />
             </div>
-            <span className="text-2xl font-extrabold text-[#2D3142]">Quiz<span className="text-[#FF6B35]">Mada</span></span>
+            <span className="text-2xl font-extrabold text-[#2D3142]">Quizz <span className="text-[#16a34a]">Leka</span></span>
           </div>
 
           <Card>
@@ -216,7 +216,7 @@ export default function AuthPage({ onSuccess, initialMode = "login" }: AuthPageP
                     <Button type="submit" loading={loading} size="lg" className="w-full">
                       Continuer <ArrowRight size={16} />
                     </Button>
-                    <button type="button" onClick={() => { setMode("login"); setError(null); }} className="text-sm text-[#A0A0A0] hover:text-[#FF6B35] transition-colors text-center">
+                    <button type="button" onClick={() => { setMode("login"); setError(null); }} className="text-sm text-[#A0A0A0] hover:text-[#16a34a] transition-colors text-center">
                       ← Retour à la connexion
                     </button>
                   </form>
@@ -224,7 +224,7 @@ export default function AuthPage({ onSuccess, initialMode = "login" }: AuthPageP
               ) : mode === "register" ? (
                 <>
                   <h2 className="text-2xl font-bold text-[#2D3142] mb-1">Créer un compte</h2>
-                  <p className="text-sm text-[#A0A0A0] mb-6">Rejoignez la communauté Quiz Mada.</p>
+                  <p className="text-sm text-[#A0A0A0] mb-6">Rejoignez la communauté Quizz Leka.</p>
                   <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                     {error && <p className="text-sm text-[#D62828] bg-[#D62828]/10 rounded-lg px-3 py-2">{error}</p>}
 
@@ -242,7 +242,7 @@ export default function AuthPage({ onSuccess, initialMode = "login" }: AuthPageP
                                 value={name}
                                 onChange={(e) => { touchedRef.current = true; setName(e.target.value); }}
                                 placeholder="Saisissez votre nom d'utilisateur"
-                                className={`w-full rounded-lg border text-sm bg-white text-[#2D3142] placeholder:text-[#A0A0A0] pl-9 pr-9 py-2 transition-colors focus:outline-none focus:ring-2 focus:ring-[#FF6B35] ${
+                                className={`w-full rounded-lg border text-sm bg-white text-[#2D3142] placeholder:text-[#A0A0A0] pl-9 pr-9 py-2 transition-colors focus:outline-none focus:ring-2 focus:ring-[#16a34a] ${
                                   usernameStatus === "taken" ? "border-[#D62828] focus:border-[#D62828]" : usernameStatus === "ok" ? "border-[#06A77D] focus:border-[#06A77D]" : "border-[#D9D9D9]"
                                 }`}
                                 required
@@ -264,7 +264,7 @@ export default function AuthPage({ onSuccess, initialMode = "login" }: AuthPageP
                                 Ce nom d'utilisateur est déjà pris.
                                 {usernameSuggestion && usernameSuggestion !== name.trim() && (
                                   <>
-                                    {" "}<button type="button" className="text-[#FF6B35] font-medium underline" onClick={() => setName(usernameSuggestion)}>Utiliser {usernameSuggestion}</button>
+                                    {" "}<button type="button" className="text-[#16a34a] font-medium underline" onClick={() => setName(usernameSuggestion)}>Utiliser {usernameSuggestion}</button>
                                   </>
                                 )}
                               </p>
@@ -278,7 +278,7 @@ export default function AuthPage({ onSuccess, initialMode = "login" }: AuthPageP
                                 type="date"
                                 value={dateNaissance}
                                 onChange={e => setDateNaissance(e.target.value)}
-                                className="w-full rounded-lg border border-[#D9D9D9] text-sm bg-white text-[#2D3142] pl-9 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35]"
+                                className="w-full rounded-lg border border-[#D9D9D9] text-sm bg-white text-[#2D3142] pl-9 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#16a34a] focus:border-[#16a34a]"
                                 required
                               />
                             </div>
@@ -292,7 +292,7 @@ export default function AuthPage({ onSuccess, initialMode = "login" }: AuthPageP
                               <select
                                 value={villeOrigine}
                                 onChange={(e) => setVilleOrigine(e.target.value)}
-                                className="w-full rounded-lg border border-[#D9D9D9] text-sm bg-white text-[#2D3142] pl-9 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35]"
+                                className="w-full rounded-lg border border-[#D9D9D9] text-sm bg-white text-[#2D3142] pl-9 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#16a34a] focus:border-[#16a34a]"
                                 required
                               >
                                 <option value="">Choisir une ville</option>
@@ -328,7 +328,7 @@ export default function AuthPage({ onSuccess, initialMode = "login" }: AuthPageP
                               placeholder="Minimum 8 caractères"
                               value={password}
                               onChange={e => setPassword(e.target.value)}
-                              className="w-full rounded-lg border border-[#D9D9D9] text-sm bg-white text-[#2D3142] placeholder:text-[#A0A0A0] pl-9 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35]"
+                              className="w-full rounded-lg border border-[#D9D9D9] text-sm bg-white text-[#2D3142] placeholder:text-[#A0A0A0] pl-9 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-[#16a34a] focus:border-[#16a34a]"
                               required
                               minLength={8}
                             />
@@ -346,7 +346,7 @@ export default function AuthPage({ onSuccess, initialMode = "login" }: AuthPageP
                               placeholder="Retapez le mot de passe"
                               value={confirmPassword}
                               onChange={e => setConfirmPassword(e.target.value)}
-                              className="w-full rounded-lg border border-[#D9D9D9] text-sm bg-white text-[#2D3142] placeholder:text-[#A0A0A0] pl-9 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35]"
+                              className="w-full rounded-lg border border-[#D9D9D9] text-sm bg-white text-[#2D3142] placeholder:text-[#A0A0A0] pl-9 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-[#16a34a] focus:border-[#16a34a]"
                               required
                               minLength={8}
                             />
@@ -357,12 +357,12 @@ export default function AuthPage({ onSuccess, initialMode = "login" }: AuthPageP
                             type="checkbox"
                             checked={consent}
                             onChange={(e) => setConsent(e.target.checked)}
-                            className="mt-0.5 accent-[#FF6B35]"
+                            className="mt-0.5 accent-[#16a34a]"
                             required
                           />
                           <span>
-                            J'accepte les <span className="text-[#FF6B35] font-medium">conditions d'utilisation</span> et la{" "}
-                            <span className="text-[#FF6B35] font-medium">politique de confidentialité</span> de Quiz Mada.
+                            J'accepte les <span className="text-[#16a34a] font-medium">conditions d'utilisation</span> et la{" "}
+                            <span className="text-[#16a34a] font-medium">politique de confidentialité</span> de Quizz Leka.
                           </span>
                         </label>
                         <div className="flex gap-2">
@@ -379,20 +379,20 @@ export default function AuthPage({ onSuccess, initialMode = "login" }: AuthPageP
                   <Separator className="my-4" />
                   <p className="text-sm text-center text-[#A0A0A0]">
                     Déjà un compte ?{" "}
-                    <button onClick={() => { setMode("login"); setError(null); setRegisterStep(1); }} className="text-[#FF6B35] font-medium hover:underline">Se connecter</button>
+                    <button onClick={() => { setMode("login"); setError(null); setRegisterStep(1); }} className="text-[#16a34a] font-medium hover:underline">Se connecter</button>
                   </p>
                 </>
               ) : (
                 <>
                   <h2 className="text-2xl font-bold text-[#2D3142] mb-1">Connexion</h2>
-                  <p className="text-sm text-[#A0A0A0] mb-6">Bienvenue sur Quiz Mada !</p>
+                  <p className="text-sm text-[#A0A0A0] mb-6">Bienvenue sur Quizz Leka !</p>
                   <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                     {error && <p className="text-sm text-[#D62828] bg-[#D62828]/10 rounded-lg px-3 py-2">{error}</p>}
                     <Input label="Email ou téléphone" type="text" placeholder="votre@email.mg ou 034 00 000 00" value={loginId} onChange={e => setLoginId(e.target.value)} leftIcon={<Mail size={16} />} required />
                     <div className="flex flex-col gap-1.5">
                       <div className="flex items-center justify-between">
                         <label className="text-sm font-medium text-[#2D3142]">Mot de passe</label>
-                        <button type="button" onClick={() => setMode("forgot")} className="text-xs text-[#FF6B35] hover:underline">Mot de passe oublié ?</button>
+                        <button type="button" onClick={() => setMode("forgot")} className="text-xs text-[#16a34a] hover:underline">Mot de passe oublié ?</button>
                       </div>
                       <div className="relative flex items-center">
                         <span className="absolute left-3 text-[#A0A0A0]"><Lock size={16} /></span>
@@ -401,7 +401,7 @@ export default function AuthPage({ onSuccess, initialMode = "login" }: AuthPageP
                           placeholder="••••••••"
                           value={password}
                           onChange={e => setPassword(e.target.value)}
-                          className="w-full rounded-lg border border-[#D9D9D9] text-sm bg-white text-[#2D3142] placeholder:text-[#A0A0A0] pl-9 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-[#FF6B35]"
+                          className="w-full rounded-lg border border-[#D9D9D9] text-sm bg-white text-[#2D3142] placeholder:text-[#A0A0A0] pl-9 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-[#16a34a] focus:border-[#16a34a]"
                           required
                         />
                         <button type="button" onClick={() => setShowPass(v => !v)} className="absolute right-3 text-[#A0A0A0]" aria-label={showPass ? "Cacher" : "Montrer"}>
@@ -416,7 +416,7 @@ export default function AuthPage({ onSuccess, initialMode = "login" }: AuthPageP
                   <Separator className="my-4" />
                   <p className="text-sm text-center text-[#A0A0A0]">
                     Pas encore de compte ?{" "}
-                    <button onClick={() => { setMode("register"); setError(null); }} className="text-[#FF6B35] font-medium hover:underline">S'inscrire gratuitement</button>
+                    <button onClick={() => { setMode("register"); setError(null); }} className="text-[#16a34a] font-medium hover:underline">S'inscrire gratuitement</button>
                   </p>
                 </>
               )}

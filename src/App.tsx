@@ -75,7 +75,7 @@ function Footer() {
   return (
     <footer className="border-t border-[#dfeae0] bg-white">
       <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-4 text-sm text-[#64748b] md:flex-row md:items-center md:justify-between">
-        <p>QuizzMada © 2026 — Jeux, communauté et défis en direct.</p>
+        <p>Quizz Leka © 2026 — Jeux, communauté et défis en direct.</p>
         <div className="flex items-center gap-4">
           <span>À propos</span>
           <span>Règlement</span>
@@ -238,7 +238,7 @@ function AppShell() {
     return (
       <div className="h-full flex flex-col items-center justify-center gap-3 bg-[#F9F9F9]">
         <Skeleton className="w-16 h-16 rounded-2xl" />
-        <p className="text-sm text-[#A0A0A0]">Chargement de Quiz Mada…</p>
+        <p className="text-sm text-[#A0A0A0]">Chargement de Quizz Leka…</p>
       </div>
     );
   }

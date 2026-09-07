@@ -107,7 +107,7 @@ export default function SettingsPage({ onNavigate }: { onNavigate?: (page: strin
     <div className="max-w-2xl mx-auto px-4 md:px-6 py-6 pb-20 md:pb-8">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-[#2D3142]">Paramètres</h1>
-        <p className="text-sm text-[#A0A0A0]">Personnalisez votre expérience Quiz Mada</p>
+        <p className="text-sm text-[#A0A0A0]">Personnalisez votre expérience Quizz Leka</p>
       </div>
 
       <Tabs defaultValue="profile">

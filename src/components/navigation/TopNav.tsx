@@ -281,7 +281,7 @@ export default function TopNav({ currentPage, onNavigate }: TopNavProps) {
             <Gamepad2 size={16} className="text-white" />
           </div>
           <span className="font-black text-[#1f2a1f] text-lg hidden md:block">
-            Quizz<span className="text-[#15803d]">Mada</span>
+            Quizz<span className="text-[#15803d]"> Leka</span>
           </span>
         </button>
 
