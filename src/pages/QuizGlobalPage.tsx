@@ -93,13 +93,11 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
         (g) => g.status === "WAITING" && g.invitedPlayer?.id && g.playerA?.id === user?.id,
       );
       setPendingInvites(Object.fromEntries(myPending.map((g) => [String(g.invitedPlayer?.id), g.gameId])));
-      // Ne plus charger automatiquement les parties en cours pour éviter la redirection involontaire
-      // if (!game && matchId) {
-      //   const res = await quizGlobalApi.get(Number(matchId));
-      //   setGame(withServerOffset(res.partieQuizGlobal));
-      // } else if (!game && !matchId && playable) {
-      //   setGame(withServerOffset(playable));
-      // }
+      // Charger automatiquement seulement si matchId est fourni explicitement (navigation directe)
+      if (!game && matchId) {
+        const res = await quizGlobalApi.get(Number(matchId));
+        setGame(withServerOffset(res.partieQuizGlobal));
+      }
     } catch {
       setWaiting([]);
     }

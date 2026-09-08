@@ -349,7 +349,7 @@ function AppShell() {
         </Dialog>
       )}
 
-      {!isAuth && (
+      {isAuth && (
         <Dialog open={Boolean(quizInvite)} onClose={closeQuizInvite}>
           <DialogHeader className="relative">
             <DialogTitle>🎯 Invitation Quizz Global</DialogTitle>
