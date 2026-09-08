@@ -138,17 +138,26 @@ function AppShell() {
         setRabbitInvite({ matchId, titre: titre || "Invitation Course lapin", message: message || "Acceptez pour rejoindre la course." });
         return;
       }
-      if (/quizz global/i.test(titre) && matchId) {
+      // Détection plus robuste pour Quiz Global
+      const isQuizInvite = /quizz global/i.test(titre) || (detail?.type === "defi_recu" && /quizz/i.test(`${titre} ${message}`));
+      if (isQuizInvite && matchId) {
+        console.log("Quiz Global invitation detected:", { titre, message, matchId });
         void enqueueQuizInvite(matchId);
       }
     };
 
     const enqueueQuizInvite = async (gameId: number) => {
       try {
-        if (dismissedInvites.current.has(gameId)) return;
+        if (dismissedInvites.current.has(gameId)) {
+          console.log("Quiz invite already dismissed:", gameId);
+          return;
+        }
+        console.log("Fetching quiz invite details for game:", gameId);
         const res = await quizGlobalApi.get(gameId);
+        console.log("Quiz invite fetched:", res);
         setQuizInvite(res.partieQuizGlobal);
-      } catch {
+      } catch (err) {
+        console.error("Error fetching quiz invite:", err);
         // ignore
       }
     };
@@ -163,11 +172,17 @@ function AppShell() {
     const check = async () => {
       if (cancelled || quizInviteRef.current) return;
       try {
+        console.log("Checking for quiz global invitations...");
         const res = await quizGlobalApi.mesInvitations();
         const invites = res.mesInvitationsQuizGlobal ?? [];
+        console.log("Quiz invitations found:", invites.length);
         const next = invites.find((g) => !dismissedInvites.current.has(g.gameId));
-        if (next) setQuizInvite(next);
-      } catch {
+        if (next) {
+          console.log("Setting quiz invite:", next);
+          setQuizInvite(next);
+        }
+      } catch (err) {
+        console.error("Error checking quiz invitations:", err);
         // ignore
       }
     };
