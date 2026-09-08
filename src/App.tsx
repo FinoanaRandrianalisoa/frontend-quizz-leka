@@ -183,10 +183,12 @@ function AppShell() {
     const gameId = quizInvite.gameId;
     setQuizInviteBusy(true);
     try {
+      dismissedInvites.current.add(gameId);
       setQuizInvite(null);
       const res = await quizGlobalApi.rejoindre(gameId);
       navigate("quizGlobal", res.rejoindrePartieQuizGlobal.gameId || gameId);
     } catch {
+      dismissedInvites.current.add(gameId);
       navigate("quizGlobal", gameId);
     } finally {
       setQuizInviteBusy(false);
@@ -359,8 +361,14 @@ function AppShell() {
           <DialogContent>
             <p className="text-sm text-[#64748b]">
               {quizInvite?.playerA?.pseudo} vous invite à un duel Quizz Global de{" "}
-              {quizInvite?.targetQuestions} questions. Confirmez pour rejoindre la partie.
+              {quizInvite?.targetQuestions} questions
+              {Number(quizInvite?.mise) > 0 ? ` avec une mise de ${Number(quizInvite?.mise).toLocaleString("fr-MG")} Ar` : "."} Confirmez pour rejoindre la partie.
             </p>
+            {Number(quizInvite?.mise) > 0 && (
+              <div className="rounded-xl bg-[#f1faf5] border border-[#bbf7d0] p-3 text-sm font-semibold text-[#166534]">
+                💰 Mise du duel : {Number(quizInvite?.mise).toLocaleString("fr-MG")} Ar — le gagnant remporte le pot.
+              </div>
+            )}
           </DialogContent>
           <DialogFooter>
             <Button variant="outline" disabled={quizInviteBusy} onClick={() => void refuseQuizInvite()}>

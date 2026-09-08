@@ -48,13 +48,21 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
   const [myPick, setMyPick] = useState<string | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [tieBreakIntro, setTieBreakIntro] = useState(false);
+  const [mise, setMise] = useState<string>("");
+  const [wallet, setWallet] = useState<{ soldeRecharge: string; portefeuilleDeverrouille: boolean } | null>(null);
+  const [lastThemeChoice, setLastThemeChoice] = useState<{ theme: string; seat: string } | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
+  const tieBreakShownRef = useRef(false);
 
   useEffect(() => {
-    if (game?.question?.isTieBreak && game.status === "QUESTION_READING") {
+    if (game?.question?.isTieBreak && game.status === "QUESTION_READING" && !tieBreakShownRef.current) {
+      tieBreakShownRef.current = true;
       setTieBreakIntro(true);
       const t = setTimeout(() => setTieBreakIntro(false), 2600);
       return () => clearTimeout(t);
+    }
+    if (game?.status === "WAITING" || game?.status === "THEME_SELECTION") {
+      tieBreakShownRef.current = false;
     }
   }, [game?.status, game?.question?.id]);
 
@@ -62,6 +70,10 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
     void api.utilisateurs().then((res) => {
       setPlayers((res.utilisateurs ?? []).filter((p) => p.id !== user?.id));
     }).catch(() => setPlayers([]));
+  }, [user?.id]);
+
+  useEffect(() => {
+    void api.monPortefeuille().then((res) => setWallet(res.monPortefeuille)).catch(() => undefined);
   }, [user?.id]);
 
   const reloadLobbies = async () => {
@@ -73,13 +85,14 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
         (g) => g.status === "WAITING" && g.invitedPlayer?.id && g.playerA?.id === user?.id,
       );
       setPendingInvites(Object.fromEntries(myPending.map((g) => [String(g.invitedPlayer?.id), g.gameId])));
-      const active = mineList.find((g) => g.status !== "WAITING" || g.playerA?.id === user?.id);
-      if (!game && (matchId || active)) {
-        const id = matchId || active?.gameId;
-        if (id) {
-          const res = await quizGlobalApi.get(Number(id));
-          setGame(withServerOffset(res.partieQuizGlobal));
-        }
+      const playable = mineList.find(
+        (g) => g.gameId !== game?.gameId && ["THEME_SELECTION", "QUESTION_READING", "ANSWERING", "QUESTION_FINISHED", "TIE_BREAK"].includes(g.status)
+      );
+      if (!game && matchId) {
+        const res = await quizGlobalApi.get(Number(matchId));
+        setGame(withServerOffset(res.partieQuizGlobal));
+      } else if (!game && !matchId && playable) {
+        setGame(withServerOffset(playable));
       }
     } catch {
       setWaiting([]);
@@ -115,6 +128,9 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
         if (data.event === "PLAYER_ANSWER_ACK") {
           setAckStatus(data.status);
           return;
+        }
+        if (data.event === "THEME_SELECTED") {
+          setLastThemeChoice({ theme: data.chosenTheme, seat: data.chosenBySeat });
         }
         if (data.gameId) {
           setGame(withServerOffset(data));
@@ -155,11 +171,16 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
   const myTurn = game?.mySeat === game?.activeSeat;
   const locked = Boolean(game?.myAnswer) || ackStatus === "INCORRECT" || ackStatus === "RECORDED";
 
+  const miseValue = (): number => {
+    const n = parseFloat(mise || "0");
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  };
+
   const createGame = async () => {
     setBusy(true);
     setError(null);
     try {
-      const res = await quizGlobalApi.creer(target, undefined);
+      const res = await quizGlobalApi.creer(target, undefined, miseValue());
       setGame(withServerOffset(res.creerPartieQuizGlobal));
       onNavigate("quizGlobal", res.creerPartieQuizGlobal.gameId);
     } catch (err) {
@@ -173,7 +194,7 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
     setBusy(true);
     setError(null);
     try {
-      const res = await quizGlobalApi.creer(target, Number(player.id));
+      const res = await quizGlobalApi.creer(target, Number(player.id), miseValue());
       setPendingInvites((prev) => ({ ...prev, [player.id]: res.creerPartieQuizGlobal.gameId }));
       await reloadLobbies();
     } catch (err) {
@@ -204,7 +225,7 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
   const joinGame = async (id: number) => {
     setBusy(true);
     try {
-      const res = await quizGlobalApi.rejoindre(id);
+      const res = await quizGlobalApi.rejoindre(id, miseValue());
       setGame(withServerOffset(res.rejoindrePartieQuizGlobal));
       onNavigate("quizGlobal", id);
     } catch (err) {
@@ -267,7 +288,7 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
             <h1 className="text-2xl font-bold flex items-center gap-2"><Globe size={22} className="text-[#16a34a]" /> Quizz global</h1>
             <p className="text-sm text-[#64748b]">Deux joueurs, thèmes alternés, lecture 10s puis réponse 10s, Tie-Break en cas d'égalité.</p>
           </div>
-          <Button variant="outline" onClick={() => onNavigate("categories")}>Retour</Button>
+          <Button variant="outline" onClick={() => onNavigate("categories", null)}>Retour</Button>
         </div>
         {error && <p className="mb-4 text-sm text-[#D62828]">{error}</p>}
         <div className="grid md:grid-cols-2 gap-6">
@@ -279,6 +300,25 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
                 {TARGETS.map((n) => (
                   <Button key={n} variant={target === n ? "default" : "outline"} onClick={() => setTarget(n)}>{n}</Button>
                 ))}
+              </div>
+              <div>
+                <label className="block text-sm text-[#64748b] mb-2">
+                  Montant de la mise — pari (Ar)
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={mise}
+                    onChange={(e) => setMise(e.target.value)}
+                    placeholder="0 = sans pari"
+                    className="w-full rounded-lg border border-[#d9e7dd] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#16a34a]"
+                  />
+                </div>
+                <p className="mt-1 text-xs text-[#64748b]">
+                  Solde disponible : {wallet ? `${Number(wallet.soldeRecharge).toLocaleString("fr-MG")} Ar` : "…"}
+                </p>
               </div>
               <Button loading={busy} onClick={() => void createGame()}>Créer un salon ouvert</Button>
               <div>
@@ -322,8 +362,24 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
                   <div>
                     <p className="text-sm font-semibold">{g.playerA?.pseudo} attend un adversaire</p>
                     <p className="text-xs text-[#64748b]">{g.targetQuestions} questions</p>
+                    {Number(g.mise) > 0 && (
+                      <p className="text-xs font-semibold text-[#166534]">Mise : {Number(g.mise).toLocaleString("fr-MG")} Ar</p>
+                    )}
                   </div>
-                  <Button size="sm" disabled={busy || g.playerA?.id === user?.id} onClick={() => void joinGame(g.gameId)}>Rejoindre</Button>
+                  <div className="flex items-center gap-2">
+                    {Number(g.mise) > 0 && (
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        placeholder="votre mise"
+                        value={mise}
+                        onChange={(e) => setMise(e.target.value)}
+                        className="w-32 rounded-lg border border-[#d9e7dd] px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#16a34a]"
+                      />
+                    )}
+                    <Button size="sm" disabled={busy || g.playerA?.id === user?.id} onClick={() => void joinGame(g.gameId)}>Rejoindre</Button>
+                  </div>
                 </div>
               ))}
             </CardContent>
@@ -346,13 +402,14 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
           <p className="text-sm text-[#64748b]">
             {game.playerA?.pseudo ?? "A"} {game.playerA?.score ?? 0} — {game.playerB?.score ?? 0} {game.playerB?.pseudo ?? "en attente"}
             {" · "}Tour {game.currentTurn}/{game.targetQuestions}{game.question?.isTieBreak ? " · ⚡ Tie-Break" : ""}
+            {Number(game.mise) > 0 ? ` · 💰 Mise ${Number(game.mise).toLocaleString("fr-MG")} Ar` : ""}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" className="lg:hidden gap-2" onClick={() => setChatOpen(true)}>
             <MessageCircle size={16} /> Chat
           </Button>
-          <Button variant="outline" onClick={() => { setGame(null); onNavigate("categories"); }}>Quitter</Button>
+          <Button variant="outline" onClick={() => { setGame(null); onNavigate("categories", null); }}>Quitter</Button>
         </div>
       </div>
       {error && <p className="mb-4 text-sm text-[#D62828]">{error}</p>}
@@ -373,9 +430,12 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
                   key={theme.id}
                   disabled={!myTurn || !theme.selectable}
                   onClick={() => void chooseTheme(theme.id)}
-                  className="text-left rounded-xl border border-[#e6f4ea] p-4 hover:shadow-md disabled:opacity-40"
+                  className="group text-left rounded-xl border border-[#e6f4ea] p-4 transition-all duration-200 hover:border-[#16a34a] hover:shadow-md hover:-translate-y-0.5 disabled:opacity-40 disabled:hover:border-[#e6f4ea] disabled:hover:shadow-none disabled:hover:translate-y-0"
                 >
-                  <p className="font-semibold">{theme.nom}</p>
+                  <p className="font-semibold flex items-center gap-2">
+                    <span className="inline-block size-2 rounded-full bg-transparent group-hover:bg-[#16a34a] transition-colors" />
+                    {theme.nom}
+                  </p>
                   <p className="text-xs text-[#64748b]">{theme.remaining} questions disponibles</p>
                 </button>
               ))}
@@ -417,6 +477,12 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
                     <QuizTimer duration={phaseLen} remaining={seconds} variant="linear" />
                   </div>
                 </div>
+                {lastThemeChoice?.theme && lastThemeChoice?.theme === game.question.theme && (
+                  <div className="inline-flex items-center gap-2 rounded-full bg-[#f1faf5] border border-[#bbf7d0] px-4 py-1.5 text-xs font-semibold text-[#166534]">
+                    <span className="inline-block size-2 rounded-full bg-[#16a34a] animate-live-pulse" />
+                    {lastThemeChoice.seat === "A" ? game.playerA?.pseudo : game.playerB?.pseudo} a choisi le thème « {game.question.theme} »
+                  </div>
+                )}
                 <p className="text-sm font-semibold text-[#16a34a]">🇲🇬 {game.question.theme}</p>
                 <p className="text-2xl font-bold">{game.question.question}</p>
                 <p className="text-sm text-[#64748b]">Les réponses arrivent bientôt…</p>
@@ -450,17 +516,23 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
               <div className="rounded-xl bg-[#f1faf5] text-[#166534] p-3 text-sm">Réponse enregistrée</div>
             )}
             <div className="grid sm:grid-cols-2 gap-3">
-              {LETTERS.map((letter) => (
-                <button
-                  key={letter}
-                  disabled={locked}
-                  onClick={() => void answer(letter)}
-                  className={`rounded-xl border p-4 text-left ${(game.myAnswer?.selectedOption ?? myPick) === letter ? "border-[#16a34a]" : "border-[#e6f4ea]"} disabled:opacity-60`}
-                >
-                  <span className="font-bold mr-2">{letter}.</span>
-                  {game.question?.options?.[letter]}
-                </button>
-              ))}
+              {LETTERS.map((letter) => {
+                const selected = (game.myAnswer?.selectedOption ?? myPick) === letter;
+                return (
+                  <button
+                    key={letter}
+                    disabled={locked}
+                    onClick={() => void answer(letter)}
+                    className={`rounded-xl border p-4 text-left transition-all duration-200 hover:border-[#16a34a] hover:shadow-md hover:-translate-y-0.5 disabled:hover:shadow-none disabled:hover:translate-y-0 ${selected ? "border-[#16a34a] bg-[#f1faf5] shadow-md ring-2 ring-[#16a34a]/30" : "border-[#e6f4ea]"} ${locked ? "cursor-not-allowed" : "cursor-pointer"}`}
+                  >
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="font-bold mr-2">{letter}.</span>
+                      <span className="flex-1">{game.question?.options?.[letter]}</span>
+                      {selected && <span className="shrink-0 rounded-full bg-[#16a34a] text-white text-xs font-bold px-2 py-0.5">✓</span>}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </CardContent>
         </Card>
@@ -502,7 +574,7 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl bg-[#f1faf5] border border-[#06A77D]/30 p-4">
                 <p className="text-lg font-bold">{winnerName ? <>🏆 {winnerName} gagne</> : <>🤝 Égalité</>}</p>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => onNavigate("categories")}>Retour</Button>
+                  <Button variant="outline" size="sm" onClick={() => onNavigate("categories", null)}>Retour</Button>
                   <Button size="sm" className="gap-2" onClick={() => void startRematch()} loading={busy}>
                     <Repeat size={15} /> Revanche
                   </Button>

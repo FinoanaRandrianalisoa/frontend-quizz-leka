@@ -33,6 +33,8 @@ export type QuizGlobalState = {
   currentTurn: number;
   activeSeat: string;
   isTieBreak: boolean;
+  mise: string;
+  miseEffective: string;
   phaseStartedAt?: string | null;
   phaseDeadline?: string | null;
   serverTime: string;
@@ -55,7 +57,7 @@ export type QuizGlobalState = {
 };
 
 const STATE = `
-  gameId status targetQuestions currentTurn activeSeat isTieBreak
+  gameId status targetQuestions currentTurn activeSeat isTieBreak mise miseEffective
   phaseStartedAt phaseDeadline serverTime mySeat winnerId
   themes { id nom icone remaining selectable }
   playerA { id pseudo seat score }
@@ -67,18 +69,18 @@ const STATE = `
 `;
 
 export const quizGlobalApi = {
-  creer(targetQuestions: number, inviteId?: number) {
+  creer(targetQuestions: number, inviteId?: number, mise?: number) {
     return gql<{ creerPartieQuizGlobal: QuizGlobalState }>(
-      `mutation($n: Int!, $inviteId: Int) {
-        creerPartieQuizGlobal(targetQuestions: $n, inviteId: $inviteId) { ${STATE} }
+      `mutation($n: Int!, $inviteId: Int, $mise: Decimal!) {
+        creerPartieQuizGlobal(targetQuestions: $n, inviteId: $inviteId, mise: $mise) { ${STATE} }
       }`,
-      { n: targetQuestions, inviteId: inviteId ?? null },
+      { n: targetQuestions, inviteId: inviteId ?? null, mise: mise ?? 0 },
     );
   },
-  rejoindre(gameId: number) {
+  rejoindre(gameId: number, mise?: number) {
     return gql<{ rejoindrePartieQuizGlobal: QuizGlobalState }>(
-      `mutation($id: Int!) { rejoindrePartieQuizGlobal(gameId: $id) { ${STATE} } }`,
-      { id: gameId },
+      `mutation($id: Int!, $mise: Decimal) { rejoindrePartieQuizGlobal(gameId: $id, mise: $mise) { ${STATE} } }`,
+      { id: gameId, mise: mise ?? null },
     );
   },
   get(gameId: number) {
