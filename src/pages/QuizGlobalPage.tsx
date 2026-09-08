@@ -93,17 +93,13 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
         (g) => g.status === "WAITING" && g.invitedPlayer?.id && g.playerA?.id === user?.id,
       );
       setPendingInvites(Object.fromEntries(myPending.map((g) => [String(g.invitedPlayer?.id), g.gameId])));
-      const playable = mineList.find(
-        (g) => !exitedGameIdsRef.current.has(g.gameId)
-          && g.gameId !== game?.gameId
-          && ["THEME_SELECTION", "QUESTION_READING", "ANSWERING", "QUESTION_FINISHED", "TIE_BREAK"].includes(g.status)
-      );
-      if (!game && matchId) {
-        const res = await quizGlobalApi.get(Number(matchId));
-        setGame(withServerOffset(res.partieQuizGlobal));
-      } else if (!game && !matchId && playable) {
-        setGame(withServerOffset(playable));
-      }
+      // Ne plus charger automatiquement les parties en cours pour éviter la redirection involontaire
+      // if (!game && matchId) {
+      //   const res = await quizGlobalApi.get(Number(matchId));
+      //   setGame(withServerOffset(res.partieQuizGlobal));
+      // } else if (!game && !matchId && playable) {
+      //   setGame(withServerOffset(playable));
+      // }
     } catch {
       setWaiting([]);
     }
@@ -305,12 +301,31 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
     setConfirmQuitOpen(false);
     exitedGameIdsRef.current.add(leaving.gameId);
     persistExited(exitedGameIdsRef.current);
-    // Salon ouvert non démarré en tant qu'hôte → on annule pour ne pas rester référencé.
+    
+    // Annuler le salon si c'est l'hôte et que le statut est "WAITING"
     if (leaving.status === "WAITING" && user?.id && leaving.playerA?.id === user.id) {
       void quizGlobalApi.annuler(leaving.gameId).catch(() => undefined);
     }
+    
+    // Fermer le WebSocket proprement
+    if (socketRef.current) {
+      try {
+        socketRef.current.close();
+      } catch {
+        // ignore
+      }
+      socketRef.current = null;
+    }
+    
+    // Nettoyer l'état
     setGame(null);
     setChatOpen(false);
+    setError(null);
+    setAckStatus(null);
+    setMyPick(null);
+    setLastThemeChoice(null);
+    
+    // Naviguer vers les catégories sans matchId
     onNavigate("categories", null);
   };
 
