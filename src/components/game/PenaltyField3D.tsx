@@ -194,7 +194,7 @@ function Scene({ onDirectionSelect, goalkeeperPosition }: { onDirectionSelect: (
 
 export default function PenaltyField3D({ onDirectionSelect, isLocked, goalkeeperPosition }: PenaltyField3DProps) {
   return (
-    <div className="w-full h-[400px] md:h-[500px] rounded-3xl overflow-hidden border-2 border-white/10 bg-gradient-to-br from-[#1a1a2e] to-[#0f3460]">
+    <div className="w-full h-[300px] sm:h-[400px] md:h-[500px] rounded-3xl overflow-hidden border-2 border-white/10 bg-gradient-to-br from-[#1a1a2e] to-[#0f3460]">
       <Canvas>
         <PerspectiveCamera makeDefault position={[0, 5, 15]} />
         <OrbitControls enableZoom={false} enablePan={false} maxPolarAngle={Math.PI / 2.5} />
