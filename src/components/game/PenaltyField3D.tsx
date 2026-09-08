@@ -22,19 +22,19 @@ function Goal() {
   return (
     <group position={[0, 1.5, -12]}>
       {/* Poteaux */}
-      <mesh position={-3.5, 2, 0}>
+      <mesh position={[-3.5, 2, 0]}>
         <cylinderGeometry args={[0.1, 0.1, 4]} />
         <meshStandardMaterial color="#ffffff" />
       </mesh>
-      <mesh position={3.5, 2, 0]}>
+      <mesh position={[3.5, 2, 0]}>
         <cylinderGeometry args={[0.1, 0.1, 4]} />
         <meshStandardMaterial color="#ffffff" />
       </mesh>
-      <mesh position={-3.5, 0, 0]}>
+      <mesh position={[-3.5, 0, 0]}>
         <cylinderGeometry args={[0.1, 0.1, 4]} />
         <meshStandardMaterial color="#ffffff" />
       </mesh>
-      <mesh position={3.5, 0, 0]}>
+      <mesh position={[3.5, 0, 0]}>
         <cylinderGeometry args={[0.1, 0.1, 4]} />
         <meshStandardMaterial color="#ffffff" />
       </mesh>
