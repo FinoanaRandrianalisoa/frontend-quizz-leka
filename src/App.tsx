@@ -199,24 +199,33 @@ function AppShell() {
 
     const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const wsUrl = `${wsProtocol}//${window.location.host}/ws/notifications/`;
+    console.log("Connecting to notifications WebSocket:", wsUrl);
     const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
-      console.log("WebSocket notifications connecté");
+      console.log("WebSocket notifications connecté pour user:", user.id);
+    };
+
+    ws.onerror = (error) => {
+      console.error("WebSocket notifications error:", error);
     };
 
     ws.onmessage = (ev) => {
       try {
         const payload = JSON.parse(ev.data);
+        console.log("WebSocket notification received:", payload);
         
         if (payload?.type === "quiz_global.invite_accepted") {
           const hostId = String(payload.host_id);
+          console.log("Quiz global invite accepted, host_id:", hostId, "my_id:", user.id);
           if (hostId === String(user.id)) {
             // L'hôte reçoit la notification que son invitation a été acceptée
+            console.log("Redirecting host to quizGlobal:", payload.game_id);
             navigate("quizGlobal", payload.game_id);
           }
         }
-      } catch {
+      } catch (err) {
+        console.error("Error parsing WebSocket message:", err);
         // ignore malformed payload
       }
     };
