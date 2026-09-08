@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from "react";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, PerspectiveCamera } from "@react-three/drei";
 import * as THREE from "three";
 
@@ -11,7 +11,7 @@ interface PenaltyField3DProps {
 
 function Field() {
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.5, 0]}>
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.5, 0]} receiveShadow>
       <planeGeometry args={[20, 30]} />
       <meshStandardMaterial color="#2d5a27" />
     </mesh>
@@ -163,8 +163,9 @@ function Scene({ onDirectionSelect, goalkeeperPosition }: { onDirectionSelect: (
 
   return (
     <>
-      <ambientLight intensity={0.5} />
-      <directionalLight position={[10, 10, 5]} intensity={1} />
+      <ambientLight intensity={0.8} />
+      <directionalLight position={[10, 10, 5]} intensity={1.2} castShadow />
+      <pointLight position={[0, 10, 0]} intensity={0.5} />
       <Field />
       <Goal />
       <Goalkeeper position={goalkeeperPosition || "centre"} />
@@ -176,16 +177,16 @@ function Scene({ onDirectionSelect, goalkeeperPosition }: { onDirectionSelect: (
       {/* Indicateurs de direction */}
       <group position={[0, 0.5, 6]}>
         <mesh position={[-2, 0, 0]} onClick={() => setSelectedDirection("gauche")}>
-          <sphereGeometry args={[0.2, 16, 16]} />
-          <meshStandardMaterial color={selectedDirection === "gauche" ? "#4CAF50" : "#ffffff"} />
+          <sphereGeometry args={[0.3, 16, 16]} />
+          <meshStandardMaterial color={selectedDirection === "gauche" ? "#4CAF50" : "#ffffff"} emissive={selectedDirection === "gauche" ? "#4CAF50" : "#000000"} emissiveIntensity={0.3} />
         </mesh>
         <mesh position={[0, 0, 0]} onClick={() => setSelectedDirection("centre")}>
-          <sphereGeometry args={[0.2, 16, 16]} />
-          <meshStandardMaterial color={selectedDirection === "centre" ? "#4CAF50" : "#ffffff"} />
+          <sphereGeometry args={[0.3, 16, 16]} />
+          <meshStandardMaterial color={selectedDirection === "centre" ? "#4CAF50" : "#ffffff"} emissive={selectedDirection === "centre" ? "#4CAF50" : "#000000"} emissiveIntensity={0.3} />
         </mesh>
         <mesh position={[2, 0, 0]} onClick={() => setSelectedDirection("droite")}>
-          <sphereGeometry args={[0.2, 16, 16]} />
-          <meshStandardMaterial color={selectedDirection === "droite" ? "#4CAF50" : "#ffffff"} />
+          <sphereGeometry args={[0.3, 16, 16]} />
+          <meshStandardMaterial color={selectedDirection === "droite" ? "#4CAF50" : "#ffffff"} emissive={selectedDirection === "droite" ? "#4CAF50" : "#000000"} emissiveIntensity={0.3} />
         </mesh>
       </group>
     </>

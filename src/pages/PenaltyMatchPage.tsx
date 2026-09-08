@@ -133,10 +133,11 @@ export default function PenaltyMatchPage({ onNavigate }: { onNavigate?: (p: stri
     }
   }, [user?.id]);
 
-  // Détection mobile
+  // Détection mobile - plus robuste
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768 || 'ontouchstart' in window);
+      const isMobileDevice = window.innerWidth < 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      setIsMobile(isMobileDevice);
     };
     checkMobile();
     window.addEventListener('resize', checkMobile);
@@ -491,7 +492,7 @@ export default function PenaltyMatchPage({ onNavigate }: { onNavigate?: (p: stri
               <p className="text-lg font-semibold text-white">{roundResultLabel}</p>
             </div>
 
-            <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-sm p-6 shadow-xl">
+            <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-sm p-4 md:p-6 shadow-xl">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-2 h-2 rounded-full bg-[#FFD700]"></div>
                 <p className="text-xs uppercase tracking-wider text-white/60">Terrain 3D</p>
@@ -501,26 +502,29 @@ export default function PenaltyMatchPage({ onNavigate }: { onNavigate?: (p: stri
                 isLocked={loading || roundLocked || match.statut === "termine" || countdown !== null || meIsSpectator}
                 goalkeeperPosition={currentDirection as "gauche" | "centre" | "droite" || undefined}
               />
-              {isMobile && (
-                <div className="mt-4">
-                  <button
-                    type="button"
-                    onClick={() => void playShot(joystickDirection)}
-                    disabled={loading || roundLocked || match.statut === "termine" || countdown !== null || meIsSpectator}
-                    className="w-full rounded-full bg-gradient-to-r from-[#FF6B35] to-[#FFD700] px-6 py-3 text-sm font-bold text-white shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {loading ? "Tir en cours..." : "🎯 TIRER"}
-                  </button>
-                  <p className="mt-2 text-center text-xs text-white/60">
-                    Direction: {joystickDirection}
+              
+              {/* Bouton de tir - visible sur mobile et desktop */}
+              <div className="mt-4 flex flex-col gap-3">
+                <button
+                  type="button"
+                  onClick={() => void playShot(joystickDirection)}
+                  disabled={loading || roundLocked || match.statut === "termine" || countdown !== null || meIsSpectator}
+                  className="w-full rounded-full bg-gradient-to-r from-[#FF6B35] to-[#FFD700] px-6 py-4 text-base md:text-sm font-bold text-white shadow-lg disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-xl transition-shadow"
+                >
+                  {loading ? "Tir en cours..." : "🎯 TIRER"}
+                </button>
+                
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-white/60">
+                    Direction: <span className="font-bold text-white">{joystickDirection}</span>
                   </p>
+                  {!isMobile && (
+                    <p className="text-xs text-white/60">
+                      Ou utilisez ← → ↑ + Entrée
+                    </p>
+                  )}
                 </div>
-              )}
-              {!isMobile && (
-                <div className="mt-4 text-center text-xs text-white/60">
-                  <p>Contrôles PC: ← → ↑ pour choisir la direction, Entrée pour tirer</p>
-                </div>
-              )}
+              </div>
             </div>
 
             {isMobile && (
