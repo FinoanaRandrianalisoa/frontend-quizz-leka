@@ -233,6 +233,31 @@ export default function RabbitRacePage({ onNavigate, matchId }: { onNavigate?: (
     const ws = new WebSocket(`${wsBase}/ws/match/${String(currentMatchId)}/?token=${encodeURIComponent(token ?? "")}`);
     socketRef.current = ws;
 
+    // Fallback polling pour vérifier si l'invité a accepté (si WebSocket ne fonctionne pas)
+    const pollingInterval = setInterval(async () => {
+      if (!currentMatchId || allPlayersReady) return;
+      try {
+        const result = await api.matchParId(currentMatchId);
+        const rabbitMatch = result.matchParId;
+        if (!rabbitMatch || rabbitMatch.typeJeu !== "course_lapin") return;
+        // Si l'invité a accepté et qu'on a seulement 1 joueur localement, ajouter l'invité
+        if (rabbitMatch.inviteAccepte && players.length === 1 && rabbitMatch.joueurInvite) {
+          const inviteId = Number(rabbitMatch.joueurInvite.id);
+          const inviteName = rabbitMatch.joueurInvite.pseudo ?? "Invité";
+          setPlayers((prev) => {
+            if (prev.some((entry) => Number(entry.id) === inviteId)) return prev;
+            const host = prev.find((entry) => entry.isHost) ?? toPlayer(Number(user?.id ?? 0), user?.pseudo ?? "Hôte", true, user?.photoProfil);
+            return [host, toPlayer(inviteId, inviteName, false)];
+          });
+          setAllPlayersReady(true);
+          setNotifications((prev) => [{ id: Date.now(), text: "Tous les joueurs sont prêts." }, ...prev].slice(0, 5));
+          if (isHostView) setTimeout(() => startRace(), 1000);
+        }
+      } catch {
+        // ignore errors
+      }
+    }, 2000);
+
     ws.onmessage = (event) => {
       try {
         const payload = JSON.parse(event.data) as {
@@ -374,11 +399,16 @@ export default function RabbitRacePage({ onNavigate, matchId }: { onNavigate?: (
       }
     };
 
+    ws.onclose = () => {
+      clearInterval(pollingInterval);
+    };
+
     return () => {
       try { ws.close(); } catch { /* ignore */ }
+      clearInterval(pollingInterval);
       socketRef.current = null;
     };
-  }, [currentMatchId, onNavigate, user?.id, user?.photoProfil, user?.pseudo, walkPlayerTo]);
+  }, [currentMatchId, onNavigate, user?.id, user?.photoProfil, user?.pseudo, walkPlayerTo, allPlayersReady, isHostView, players.length, startRace]);
 
   useEffect(() => {
     if (!currentMatchId) return;
