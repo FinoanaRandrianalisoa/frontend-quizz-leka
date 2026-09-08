@@ -227,6 +227,19 @@ export default function RabbitRacePage({ onNavigate, matchId }: { onNavigate?: (
           });
           setAllPlayersReady(true);
           setNotifications((prev) => [{ id: Date.now(), text: "Tous les joueurs sont prêts." }, ...prev].slice(0, 5));
+          if (isHostView && payload.match_id) {
+            const matchId = Number(payload.match_id);
+            sessionStorage.setItem("rabbit_match_id", String(matchId));
+            setCurrentMatchId(matchId);
+          }
+          // Démarrer automatiquement quand tous sont prêts (2 joueurs minimum)
+          // Utiliser players.length après la mise à jour
+          setPlayers((prevPlayers) => {
+            if (isHostView && prevPlayers.length >= 2) {
+              setTimeout(() => startRace(), 1000);
+            }
+            return prevPlayers;
+          });
         }
         if (payload.type === "rabbit.invite_sent") {
           const inviteId = Number(payload.invite_id);
