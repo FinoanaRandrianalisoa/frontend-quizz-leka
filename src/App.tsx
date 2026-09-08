@@ -178,6 +178,43 @@ function AppShell() {
     };
   }, [user?.id]);
 
+  // WebSocket pour écouter les acceptations d'invitation Quiz Global (hôte)
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const wsUrl = `${wsProtocol}//${window.location.host}/ws/notifications/`;
+    const ws = new WebSocket(wsUrl);
+
+    ws.onopen = () => {
+      console.log("WebSocket notifications connecté");
+    };
+
+    ws.onmessage = (ev) => {
+      try {
+        const payload = JSON.parse(ev.data);
+        
+        if (payload?.type === "quiz_global.invite_accepted") {
+          const hostId = String(payload.host_id);
+          if (hostId === String(user.id)) {
+            // L'hôte reçoit la notification que son invitation a été acceptée
+            navigate("quizGlobal", payload.game_id);
+          }
+        }
+      } catch {
+        // ignore malformed payload
+      }
+    };
+
+    return () => {
+      try {
+        ws.close();
+      } catch {
+        // ignore close errors
+      }
+    };
+  }, [user?.id]);
+
   const confirmQuizInvite = async () => {
     if (!quizInvite) return;
     const gameId = quizInvite.gameId;
