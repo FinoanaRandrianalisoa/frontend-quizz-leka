@@ -98,6 +98,60 @@ export default function PenaltyKickPage({ onNavigate }: { onNavigate?: (p: strin
     return () => clearInterval(interval);
   }, [user?.id]);
 
+  // WebSocket pour écouter les acceptations de défi (hôte)
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const wsUrl = `${wsProtocol}//${window.location.host}/ws/notifications/`;
+    const ws = new WebSocket(wsUrl);
+
+    ws.onopen = () => {
+      console.log("WebSocket notifications connecté");
+    };
+
+    ws.onmessage = (ev) => {
+      try {
+        const payload = JSON.parse(ev.data);
+        
+        if (payload?.type === "penalty.challenge_accepted") {
+          const hoteId = String(payload.hote_id);
+          if (hoteId === String(user.id)) {
+            // L'hôte reçoit la notification que son défi a été accepté
+            const nextMatch = {
+              id: payload.match_id,
+              joueurHoteId: payload.hote_id,
+              joueurHotePseudo: user.pseudo || "Hôte",
+              joueurInviteId: payload.invite_id,
+              joueurInvitePseudo: payload.invite_pseudo,
+              scoreHote: 0,
+              scoreInvite: 0,
+              scoreCible: 5,
+              round: 1,
+              statut: "en_cours",
+              resultatManche: null,
+              vainqueurId: null,
+            };
+            setMatch(nextMatch);
+            sessionStorage.setItem("squid_penalty_match", JSON.stringify(nextMatch));
+            sessionStorage.setItem("squid_penalty_new_match", "true");
+            if (onNavigate) onNavigate("penaltyMatch");
+          }
+        }
+      } catch {
+        // ignore malformed payload
+      }
+    };
+
+    return () => {
+      try {
+        ws.close();
+      } catch {
+        // ignore close errors
+      }
+    };
+  }, [user?.id, user?.pseudo, onNavigate]);
+
   const handleChallenge = async () => {
     if (!selected) return;
     setLoading(true);
