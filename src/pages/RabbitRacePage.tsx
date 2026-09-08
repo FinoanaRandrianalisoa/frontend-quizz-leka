@@ -120,11 +120,14 @@ export default function RabbitRacePage({ onNavigate, matchId }: { onNavigate?: (
     const accepted = Boolean(rabbitMatch.inviteAccepte);
     setIsHostView(String(hostId) === String(user?.id));
     const readyPlayers = playersFromMatch(rabbitMatch);
-    if (!raceLiveRef.current) {
+    // Ne pas écraser les joueurs si le jeu est en cours ou en attente de démarrage
+    // Cela évite de perdre les joueurs ajoutés localement via WebSocket
+    if (!raceLiveRef.current && !pendingStart && !started) {
       setPlayers(readyPlayers);
     }
-    // L'hôte est toujours prêt, donc on vérifie juste s'il y a un invité accepté
-    setAllPlayersReady(accepted && readyPlayers.length >= 2);
+    // Basé sur le nombre de joueurs locaux au lieu du backend
+    // car le backend peut avoir un délai de mise à jour
+    setAllPlayersReady(readyPlayers.length >= 2);
     if (invitedUserId) {
       setInviteStatus((prev) => ({ ...prev, [invitedUserId]: accepted ? "accepted" : "pending" }));
     }
@@ -149,13 +152,20 @@ export default function RabbitRacePage({ onNavigate, matchId }: { onNavigate?: (
       if (!currentMatchId) return;
       try {
         const result = await api.matchParId(currentMatchId);
-        applyMatch(result.matchParId);
+        const rabbitMatch = result.matchParId;
+        if (!rabbitMatch || rabbitMatch.typeJeu !== "course_lapin") return;
+        // Ne mettre à jour que l'état du match, pas les joueurs
+        // pour éviter d'écraser l'hôte ajouté localement
+        if (rabbitMatch.statut === "en_cours" && !started && !pendingStart && !winner) {
+          setPendingStart(true);
+          setCountdown((prev) => prev ?? 5);
+        }
       } catch {
         // silent loading for invited lobby
       }
     };
     void loadMatch();
-  }, [applyMatch, currentMatchId]);
+  }, [currentMatchId, pendingStart, started, winner]);
 
   useEffect(() => {
     if (currentMatchId || matchId || !user?.id || creatingMatchRef.current) return;
@@ -346,9 +356,20 @@ export default function RabbitRacePage({ onNavigate, matchId }: { onNavigate?: (
   }, [currentMatchId, onNavigate, user?.id, user?.photoProfil, user?.pseudo, walkPlayerTo]);
 
   useEffect(() => {
+    if (!currentMatchId) return;
     const refresh = () => {
       if (!currentMatchId) return;
-      void api.matchParId(currentMatchId).then((result) => applyMatch(result.matchParId)).catch(() => undefined);
+      // Ne pas mettre à jour les joueurs via API dans le lobby
+      // pour éviter d'écraser les joueurs ajoutés via WebSocket
+      void api.matchParId(currentMatchId).then((result) => {
+        const rabbitMatch = result.matchParId;
+        if (!rabbitMatch || rabbitMatch.typeJeu !== "course_lapin") return;
+        // Mettre à jour seulement l'état du match, pas les joueurs
+        if (rabbitMatch.statut === "en_cours" && !started && !pendingStart && !winner) {
+          setPendingStart(true);
+          setCountdown((prev) => prev ?? 5);
+        }
+      }).catch(() => undefined);
     };
     window.addEventListener("notifications:refresh", refresh);
     const interval = window.setInterval(refresh, 4000);
@@ -356,7 +377,7 @@ export default function RabbitRacePage({ onNavigate, matchId }: { onNavigate?: (
       window.removeEventListener("notifications:refresh", refresh);
       window.clearInterval(interval);
     };
-  }, [applyMatch, currentMatchId]);
+  }, [currentMatchId, pendingStart, started, winner]);
 
   const hostPlayer: Player = useMemo(
     () => toPlayer(Number(user?.id ?? 0), user?.pseudo ?? "Moi", true, user?.photoProfil),
@@ -364,9 +385,14 @@ export default function RabbitRacePage({ onNavigate, matchId }: { onNavigate?: (
   );
 
   const acceptedPlayers = useMemo<Player[]>(() => {
-    if (players.length > 0) return players.slice(0, 2);
-    return [hostPlayer];
-  }, [hostPlayer, players]);
+    // Utiliser directement players car ils sont mis à jour via WebSocket
+    return players;
+  }, [players]);
+
+  // Mettre à jour allPlayersReady basé sur le nombre de joueurs locaux
+  useEffect(() => {
+    setAllPlayersReady(players.length >= 2);
+  }, [players]);
 
   useEffect(() => {
     if (!pendingStart || countdown === null) return;
