@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Globe, Users, MessageCircle, X, Repeat } from "lucide-react";
-import { Button, Card, CardContent, Sheet, SheetHeader, SheetTitle, SheetContent } from "../components/ui";
+import { Button, Card, CardContent, Sheet, SheetHeader, SheetTitle, SheetContent, Dialog, DialogHeader, DialogTitle, DialogContent, DialogFooter } from "../components/ui";
 import { api } from "../lib/api";
 import { quizGlobalApi, type QuizGlobalState } from "../lib/quizGlobalApi";
 import { useAuth } from "../lib/auth";
@@ -51,8 +51,16 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
   const [mise, setMise] = useState<string>("");
   const [wallet, setWallet] = useState<{ soldeRecharge: string; portefeuilleDeverrouille: boolean } | null>(null);
   const [lastThemeChoice, setLastThemeChoice] = useState<{ theme: string; seat: string } | null>(null);
+  const [confirmQuitOpen, setConfirmQuitOpen] = useState(false);
   const socketRef = useRef<WebSocket | null>(null);
   const tieBreakShownRef = useRef(false);
+  const exitedGameIdsRef = useRef<Set<number>>(
+    new Set((() => { try { return JSON.parse(sessionStorage.getItem("quiz_global_exited") ?? "[]") as number[]; } catch { return []; } })()),
+  );
+
+  const persistExited = (ids: Set<number>) => {
+    try { sessionStorage.setItem("quiz_global_exited", JSON.stringify([...ids])); } catch { /* ignore */ }
+  };
 
   useEffect(() => {
     if (game?.question?.isTieBreak && game.status === "QUESTION_READING" && !tieBreakShownRef.current) {
@@ -86,7 +94,9 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
       );
       setPendingInvites(Object.fromEntries(myPending.map((g) => [String(g.invitedPlayer?.id), g.gameId])));
       const playable = mineList.find(
-        (g) => g.gameId !== game?.gameId && ["THEME_SELECTION", "QUESTION_READING", "ANSWERING", "QUESTION_FINISHED", "TIE_BREAK"].includes(g.status)
+        (g) => !exitedGameIdsRef.current.has(g.gameId)
+          && g.gameId !== game?.gameId
+          && ["THEME_SELECTION", "QUESTION_READING", "ANSWERING", "QUESTION_FINISHED", "TIE_BREAK"].includes(g.status)
       );
       if (!game && matchId) {
         const res = await quizGlobalApi.get(Number(matchId));
@@ -107,7 +117,13 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
 
   useEffect(() => {
     if (!matchId) return;
-    void quizGlobalApi.get(matchId).then((res) => setGame(withServerOffset(res.partieQuizGlobal))).catch((err) => setError(errMsg(err)));
+    void quizGlobalApi.get(matchId)
+      .then((res) => setGame(withServerOffset(res.partieQuizGlobal)))
+      .catch(() => {
+        // Ancienne partie expirée/supprimée → on repart sur le lobby proprement.
+        setGame(null);
+        setError(null);
+      });
   }, [matchId]);
 
   useEffect(() => {
@@ -226,6 +242,8 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
     setBusy(true);
     try {
       const res = await quizGlobalApi.rejoindre(id, miseValue());
+      exitedGameIdsRef.current.delete(id);
+      persistExited(exitedGameIdsRef.current);
       setGame(withServerOffset(res.rejoindrePartieQuizGlobal));
       onNavigate("quizGlobal", id);
     } catch (err) {
@@ -271,6 +289,7 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
     try {
       const res = await quizGlobalApi.revanche(game.gameId);
       const next = withServerOffset(res.revanchePartieQuizGlobal);
+      exitedGameIdsRef.current.delete(game.gameId);
       setGame(next);
       onNavigate("quizGlobal", next.gameId);
     } catch (err) {
@@ -279,6 +298,25 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
       setBusy(false);
     }
   };
+
+  const confirmQuit = () => {
+    if (!game) return;
+    const leaving = game;
+    setConfirmQuitOpen(false);
+    exitedGameIdsRef.current.add(leaving.gameId);
+    persistExited(exitedGameIdsRef.current);
+    // Salon ouvert non démarré en tant qu'hôte → on annule pour ne pas rester référencé.
+    if (leaving.status === "WAITING" && user?.id && leaving.playerA?.id === user.id) {
+      void quizGlobalApi.annuler(leaving.gameId).catch(() => undefined);
+    }
+    setGame(null);
+    setChatOpen(false);
+    onNavigate("categories", null);
+  };
+
+  const quitInProgress = game
+    && game.status !== "FINISHED"
+    && ["WAITING", "THEME_SELECTION", "QUESTION_READING", "ANSWERING", "QUESTION_FINISHED", "TIE_BREAK"].includes(game.status);
 
   if (!game) {
     return (
@@ -409,7 +447,7 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
           <Button variant="outline" className="lg:hidden gap-2" onClick={() => setChatOpen(true)}>
             <MessageCircle size={16} /> Chat
           </Button>
-          <Button variant="outline" onClick={() => { setGame(null); onNavigate("categories", null); }}>Quitter</Button>
+          <Button variant="outline" onClick={() => setConfirmQuitOpen(true)}>Quitter</Button>
         </div>
       </div>
       {error && <p className="mb-4 text-sm text-[#D62828]">{error}</p>}
@@ -599,6 +637,28 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
           <ChatPanel room="quizGlobal" matchId={game.gameId} spectators={0} className="h-full" />
         </SheetContent>
       </Sheet>
+
+      <Dialog open={confirmQuitOpen} onClose={() => setConfirmQuitOpen(false)}>
+        <DialogHeader>
+          <DialogTitle>{quitInProgress ? "Abandonner le match" : "Quitter la partie"}</DialogTitle>
+        </DialogHeader>
+        <DialogContent className="text-sm text-[#334155]">
+          {quitInProgress ? (
+            <>
+              <p>Voulez-vous vraiment abandonner ce match ? Cette action est définitive : votre adversaire en sera informé.</p>
+              {game?.status === "WAITING" && <p className="text-xs text-[#64748b]">Votre salon ouvert sera annulé.</p>}
+            </>
+          ) : (
+            <p>La partie est terminée. Voulez-vous quitter cette partie et revenir à l'accueil ?</p>
+          )}
+        </DialogContent>
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={() => setConfirmQuitOpen(false)}>Annuler</Button>
+          <Button variant="destructive" onClick={confirmQuit}>
+            {quitInProgress ? "Abandonner" : "Quitter"}
+          </Button>
+        </DialogFooter>
+      </Dialog>
     </div>
   );
 }

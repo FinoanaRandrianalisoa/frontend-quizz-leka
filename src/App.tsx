@@ -223,8 +223,11 @@ function AppShell() {
       window.history.pushState({}, "", loginPath);
       return;
     }
+    const isHub = target === "categories" || target === "quizGlobal";
     if (target === "rabbitRace" && (!nextMatchId || Number(nextMatchId) <= 0)) {
       sessionStorage.removeItem("rabbit_match_id");
+      setMatchId(null);
+    } else if (isHub && !nextMatchId) {
       setMatchId(null);
     } else if (nextMatchId !== undefined) {
       setMatchId(nextMatchId);
