@@ -218,28 +218,32 @@ export default function RabbitRacePage({ onNavigate, matchId }: { onNavigate?: (
         };
         if (payload.type === "rabbit.invite_accepted") {
           const inviteId = Number(payload.invite_id);
-          const inviteName = payload.invite_pseudo ?? "Invité";
           setInviteStatus((prev) => ({ ...prev, [inviteId]: "accepted" }));
-          setPlayers((prev) => {
-            if (prev.some((entry) => Number(entry.id) === inviteId)) return prev;
-            const host = prev.find((entry) => entry.isHost) ?? toPlayer(Number(user?.id ?? 0), user?.pseudo ?? "Hôte", true, user?.photoProfil);
-            return [host, toPlayer(inviteId, inviteName, false)];
-          });
           setAllPlayersReady(true);
           setNotifications((prev) => [{ id: Date.now(), text: "Tous les joueurs sont prêts." }, ...prev].slice(0, 5));
-          if (isHostView && payload.match_id) {
+          // Rafraîchir l'état du match côté serveur pour récupérer l'hôte/les IDs corrects
+          if (payload.match_id) {
             const matchId = Number(payload.match_id);
             sessionStorage.setItem("rabbit_match_id", String(matchId));
             setCurrentMatchId(matchId);
+            void api
+              .matchParId(matchId)
+              .then((res) => {
+                applyMatch(res.matchParId);
+                // si on est l'hôte et il y a maintenant au moins 2 joueurs, lancer automatiquement
+                const ready = playersFromMatch(res.matchParId);
+                if (isHostView && ready.length >= 2) setTimeout(() => startRace(), 1000);
+              })
+              .catch(() => {
+                // fallback local: si l'API échoue, on ajoute l'invité côté client
+                const inviteName = payload.invite_pseudo ?? "Invité";
+                setPlayers((prev) => {
+                  if (prev.some((entry) => Number(entry.id) === inviteId)) return prev;
+                  const host = prev.find((entry) => entry.isHost) ?? toPlayer(Number(user?.id ?? 0), user?.pseudo ?? "Hôte", true, user?.photoProfil);
+                  return [host, toPlayer(inviteId, inviteName, false)];
+                });
+              });
           }
-          // Démarrer automatiquement quand tous sont prêts (2 joueurs minimum)
-          // Utiliser players.length après la mise à jour
-          setPlayers((prevPlayers) => {
-            if (isHostView && prevPlayers.length >= 2) {
-              setTimeout(() => startRace(), 1000);
-            }
-            return prevPlayers;
-          });
         }
         if (payload.type === "rabbit.invite_sent") {
           const inviteId = Number(payload.invite_id);
