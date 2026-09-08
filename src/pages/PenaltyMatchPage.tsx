@@ -3,6 +3,8 @@ import { Button, Card, CardContent, Badge } from "../components/ui";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import usePageTitle from "@/lib/usePageTitle";
+import PenaltyField3D from "../components/game/PenaltyField3D";
+import VirtualJoystick from "../components/game/VirtualJoystick";
 
 const DIRECTIONS = ["gauche", "centre", "droite"] as const;
 type Direction = (typeof DIRECTIONS)[number];
@@ -52,6 +54,8 @@ export default function PenaltyMatchPage({ onNavigate }: { onNavigate?: (p: stri
   const [rematchRequested, setRematchRequested] = useState(false);
   const [rematchAccepted, setRematchAccepted] = useState(false);
   const [publishingVictory, setPublishingVictory] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [joystickDirection, setJoystickDirection] = useState<"gauche" | "centre" | "droite">("centre");
   const socketRef = useRef<WebSocket | null>(null);
 
   const loadStoredMatch = () => {
@@ -128,6 +132,36 @@ export default function PenaltyMatchPage({ onNavigate }: { onNavigate?: (p: stri
       void loadPendingChallenge();
     }
   }, [user?.id]);
+
+  // Détection mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768 || 'ontouchstart' in window);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Contrôles clavier pour PC
+  useEffect(() => {
+    if (isMobile) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') {
+        setJoystickDirection('gauche');
+      } else if (e.key === 'ArrowRight') {
+        setJoystickDirection('droite');
+      } else if (e.key === 'ArrowUp' || e.key === ' ') {
+        setJoystickDirection('centre');
+      } else if (e.key === 'Enter') {
+        void playShot(joystickDirection);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isMobile, joystickDirection]);
 
   // Polling automatique pour synchroniser le score
   useEffect(() => {
@@ -303,6 +337,25 @@ export default function PenaltyMatchPage({ onNavigate }: { onNavigate?: (p: stri
     }
   };
 
+  const handleJoystickMove = (x: number, y: number) => {
+    if (x < -0.3) {
+      setJoystickDirection('gauche');
+    } else if (x > 0.3) {
+      setJoystickDirection('droite');
+    } else {
+      setJoystickDirection('centre');
+    }
+  };
+
+  const handleJoystickRelease = () => {
+    void playShot(joystickDirection);
+  };
+
+  const handle3DDirectionSelect = (direction: "gauche" | "centre" | "droite") => {
+    setJoystickDirection(direction);
+    void playShot(direction);
+  };
+
   async function playShot(direction: Direction) {
     if (!match || roundLocked) return;
     setLoading(true);
@@ -438,33 +491,41 @@ export default function PenaltyMatchPage({ onNavigate }: { onNavigate?: (p: stri
               <p className="text-lg font-semibold text-white">{roundResultLabel}</p>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
-              {DIRECTIONS.map((direction) => (
-                <button
-                  key={direction}
-                  type="button"
-                  onClick={() => void playShot(direction)}
-                  disabled={loading || roundLocked || match.statut === "termine" || countdown !== null || meIsSpectator}
-                  className={`relative group rounded-3xl border-2 p-6 text-center transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 ${
-                    currentDirection === direction 
-                      ? "border-[#4CAF50] bg-gradient-to-br from-[#4CAF50]/30 to-[#8BC34A]/30 shadow-[0_0_30px_rgba(76,175,80,0.5)]" 
-                      : "border-white/20 bg-gradient-to-br from-white/10 to-white/5 hover:border-[#FF6B35] hover:shadow-[0_0_30px_rgba(255,107,53,0.3)]"
-                  } ${loading || roundLocked || match.statut === "termine" || countdown !== null || meIsSpectator ? "opacity-50 cursor-not-allowed" : ""}`}
-                >
-                  <div className="text-5xl mb-3 transform group-hover:scale-110 transition-transform duration-300">
-                    {direction === "gauche" ? "⬅️" : direction === "centre" ? "⬆️" : "➡️"}
-                  </div>
-                  <div className="text-sm font-bold capitalize text-white drop-shadow-md">
-                    {direction}
-                  </div>
-                  {currentDirection === direction && (
-                    <div className="absolute -top-2 -right-2 w-6 h-6 bg-[#4CAF50] rounded-full flex items-center justify-center text-white text-xs shadow-lg">
-                      ✓
-                    </div>
-                  )}
-                </button>
-              ))}
+            <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-sm p-6 shadow-xl">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-2 h-2 rounded-full bg-[#FFD700]"></div>
+                <p className="text-xs uppercase tracking-wider text-white/60">Terrain 3D</p>
+              </div>
+              <PenaltyField3D
+                onDirectionSelect={handle3DDirectionSelect}
+                isLocked={loading || roundLocked || match.statut === "termine" || countdown !== null || meIsSpectator}
+                goalkeeperPosition={currentDirection as "gauche" | "centre" | "droite" || undefined}
+              />
+              {!isMobile && (
+                <div className="mt-4 text-center text-xs text-white/60">
+                  <p>Contrôles PC: ← → ↑ pour choisir la direction, Entrée pour tirer</p>
+                </div>
+              )}
             </div>
+
+            {isMobile && (
+              <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-sm p-6 shadow-xl">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-2 h-2 rounded-full bg-[#FF6B35] animate-pulse"></div>
+                  <p className="text-xs uppercase tracking-wider text-white/60">Joystick</p>
+                </div>
+                <div className="flex justify-center">
+                  <VirtualJoystick
+                    onMove={handleJoystickMove}
+                    onRelease={handleJoystickRelease}
+                    size={150}
+                  />
+                </div>
+                <p className="mt-4 text-center text-xs text-white/60">
+                  Direction: {joystickDirection}
+                </p>
+              </div>
+            )}
 
             <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-sm p-6 shadow-xl">
               <div className="flex items-center gap-3 mb-4">
