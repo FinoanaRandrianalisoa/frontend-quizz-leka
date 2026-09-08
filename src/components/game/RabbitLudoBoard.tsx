@@ -190,6 +190,9 @@ export function VictoryOverlay({
   onQuit,
   onRematch,
   onShare,
+  rematchRequestedBy,
+  onAcceptRematch,
+  onRejectRematch,
 }: {
   name: string;
   photo?: string | null;
@@ -199,6 +202,9 @@ export function VictoryOverlay({
   onQuit: () => void;
   onRematch: () => void;
   onShare: () => void;
+  rematchRequestedBy?: number | null;
+  onAcceptRematch?: () => void;
+  onRejectRematch?: () => void;
 }) {
   const bits = Array.from({ length: 42 }, (_, i) => ({
     id: i,
@@ -230,15 +236,34 @@ export function VictoryOverlay({
         <h2 className="mt-2 text-2xl font-extrabold tracking-wide text-slate-800">FÉLICITATIONS</h2>
         <p className="mt-2 text-lg font-semibold text-emerald-800">{name} atteint la cage finale !</p>
         <p className="mt-1 text-sm text-slate-500">
-          {isWinner ? "Publiez votre victoire ou relancez une revanche." : "Proposez une revanche ou quittez la partie."}
+          {rematchRequestedBy ? (
+            isWinner ? "Une demande de revanche a été reçue. Acceptez ou refusez." : "En attente de la réponse du gagnant..."
+          ) : (
+            isWinner ? "Publiez votre victoire ou relancez une revanche." : "Proposez une revanche ou quittez la partie."
+          )}
         </p>
         <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-3">
           <button type="button" onClick={onQuit} className="rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700">
             Quitter la partie
           </button>
-          <button type="button" onClick={onRematch} className="rounded-full bg-gradient-to-r from-emerald-500 to-lime-400 px-4 py-2.5 text-sm font-bold text-slate-900">
-            Revanche
-          </button>
+          {rematchRequestedBy ? (
+            <>
+              {isWinner && onAcceptRematch && (
+                <button type="button" onClick={onAcceptRematch} className="rounded-full bg-gradient-to-r from-emerald-500 to-lime-400 px-4 py-2.5 text-sm font-bold text-slate-900">
+                  Accepter la revanche
+                </button>
+              )}
+              {isWinner && onRejectRematch && (
+                <button type="button" onClick={onRejectRematch} className="rounded-full border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700">
+                  Refuser
+                </button>
+              )}
+            </>
+          ) : (
+            <button type="button" onClick={onRematch} className="rounded-full bg-gradient-to-r from-emerald-500 to-lime-400 px-4 py-2.5 text-sm font-bold text-slate-900">
+              Revanche
+            </button>
+          )}
           <button
             type="button"
             onClick={onShare}

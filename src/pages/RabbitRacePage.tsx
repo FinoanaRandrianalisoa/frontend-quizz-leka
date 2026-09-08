@@ -234,16 +234,19 @@ export default function RabbitRacePage({ onNavigate, matchId }: { onNavigate?: (
     socketRef.current = ws;
 
     // Fallback polling pour vérifier si l'invité a accepté (si WebSocket ne fonctionne pas)
+    console.log('[Polling] Démarrage du polling pour match', currentMatchId);
     const pollingInterval = setInterval(async () => {
       if (!currentMatchId || allPlayersReady) return;
       try {
         const result = await api.matchParId(currentMatchId);
         const rabbitMatch = result.matchParId;
         if (!rabbitMatch || rabbitMatch.typeJeu !== "course_lapin") return;
+        console.log('[Polling] inviteAccepte:', rabbitMatch.inviteAccepte, 'players.length:', players.length, 'joueurInvite:', rabbitMatch.joueurInvite?.id);
         // Si l'invité a accepté et qu'on a seulement 1 joueur localement, ajouter l'invité
         if (rabbitMatch.inviteAccepte && players.length === 1 && rabbitMatch.joueurInvite) {
           const inviteId = Number(rabbitMatch.joueurInvite.id);
           const inviteName = rabbitMatch.joueurInvite.pseudo ?? "Invité";
+          console.log('[Polling] Ajout de l\'invité:', inviteId, inviteName);
           setPlayers((prev) => {
             if (prev.some((entry) => Number(entry.id) === inviteId)) return prev;
             const host = prev.find((entry) => entry.isHost) ?? toPlayer(Number(user?.id ?? 0), user?.pseudo ?? "Hôte", true, user?.photoProfil);
@@ -253,8 +256,8 @@ export default function RabbitRacePage({ onNavigate, matchId }: { onNavigate?: (
           setNotifications((prev) => [{ id: Date.now(), text: "Tous les joueurs sont prêts." }, ...prev].slice(0, 5));
           // Le démarrage automatique sera géré par le useEffect sur allPlayersReady
         }
-      } catch {
-        // ignore errors
+      } catch (err) {
+        console.error('[Polling] Erreur:', err);
       }
     }, 2000);
 
@@ -388,6 +391,11 @@ export default function RabbitRacePage({ onNavigate, matchId }: { onNavigate?: (
           setTurns(0);
           setRaceTime(0);
           setMoveHint("");
+        }
+        if (payload.type === "rabbit.rematch_reject") {
+          setRematchRequestedBy(null);
+          setRematchVotes([]);
+          setMoveHint("La demande de revanche a été refusée.");
         }
         if (payload.type === "rabbit.quit") {
           if (Number(payload.from_id) === Number(user?.id)) return;
@@ -609,13 +617,22 @@ export default function RabbitRacePage({ onNavigate, matchId }: { onNavigate?: (
     sendRaceEvent({ type: "rabbit.rematch_accept", from_id: me, match_id: currentMatchId, votes: nextVotes });
   };
 
+  const rejectRematch = () => {
+    const me = Number(user?.id ?? 0);
+    if (!me || !currentMatchId) return;
+    setRematchRequestedBy(null);
+    setRematchVotes([]);
+    setMoveHint("La demande de revanche a été refusée.");
+    sendRaceEvent({ type: "rabbit.rematch_reject", from_id: me, match_id: currentMatchId });
+  };
+
   const shareVictory = async () => {
     if (!winner || Number(winner.id) !== Number(user?.id) || sharingVictory || victoryShared) return;
     setSharingVictory(true);
     try {
       await api.publier(`🏆 Victoire Course des Lapins ! ${winner.name} a atteint la cage ${FINISH_POS} et remporte la course.`);
       setVictoryShared(true);
-      onNavigate?.("home");
+      // Ne pas naviguer automatiquement, garder le badge affiché
     } catch {
       setNotifications((prev) => [{ id: Date.now(), text: "Impossible de publier la victoire." }, ...prev].slice(0, 5));
     } finally {
@@ -973,6 +990,9 @@ export default function RabbitRacePage({ onNavigate, matchId }: { onNavigate?: (
           onQuit={quitMatch}
           onRematch={rematch}
           onShare={shareVictory}
+          rematchRequestedBy={rematchRequestedBy}
+          onAcceptRematch={acceptRematch}
+          onRejectRematch={rejectRematch}
         />
       )}
     </div>
