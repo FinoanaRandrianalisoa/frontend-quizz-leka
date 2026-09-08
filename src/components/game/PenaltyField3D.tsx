@@ -61,7 +61,7 @@ function Goalkeeper({ position }: { position: "gauche" | "centre" | "droite" }) 
       groupRef.current.position.x = THREE.MathUtils.lerp(
         groupRef.current.position.x,
         targetX,
-        delta5
+        delta * 5
       );
     }
   });
@@ -70,7 +70,7 @@ function Goalkeeper({ position }: { position: "gauche" | "centre" | "droite" }) 
     <group ref={groupRef} position={[0, 0, -10]}>
       {/* Corps du gardien */}
       <mesh position={[0, 1, 0]}>
-        <capsuleGeometry args={[0.3, 1, 4, 8]} />
+        <cylinderGeometry args={[0.3, 0.3, 1, 8]} />
         <meshStandardMaterial color="#ff6b35" />
       </mesh>
       {/* Tête */}
@@ -80,20 +80,20 @@ function Goalkeeper({ position }: { position: "gauche" | "centre" | "droite" }) 
       </mesh>
       {/* Bras */}
       <mesh position={[-0.5, 1.2, 0]}>
-        <capsuleGeometry args={[0.1, 0.6, 4, 8]} />
+        <cylinderGeometry args={[0.1, 0.1, 0.6, 8]} />
         <meshStandardMaterial color="#ff6b35" />
       </mesh>
       <mesh position={[0.5, 1.2, 0]}>
-        <capsuleGeometry args={[0.1, 0.6, 4, 8]} />
+        <cylinderGeometry args={[0.1, 0.1, 0.6, 8]} />
         <meshStandardMaterial color="#ff6b35" />
       </mesh>
       {/* Jambes */}
       <mesh position={[-0.2, 0.3, 0]}>
-        <capsuleGeometry args={[0.12, 0.5, 4, 8]} />
+        <cylinderGeometry args={[0.12, 0.12, 0.5, 8]} />
         <meshStandardMaterial color="#1a1a2e" />
       </mesh>
       <mesh position={[0.2, 0.3, 0]}>
-        <capsuleGeometry args={[0.12, 0.5, 4, 8]} />
+        <cylinderGeometry args={[0.12, 0.12, 0.5, 8]} />
         <meshStandardMaterial color="#1a1a2e" />
       </mesh>
     </group>
