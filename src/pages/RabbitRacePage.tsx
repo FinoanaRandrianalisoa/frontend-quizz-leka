@@ -42,7 +42,9 @@ function playersFromMatch(match: Match): Player[] {
   const host = match.joueurHote;
   const invite = match.joueurInvite;
   const list: Player[] = [];
+  // L'hôte est toujours prêt
   if (host?.id) list.push(toPlayer(Number(host.id), host.pseudo, true, host.photoProfil));
+  // L'invité est prêt s'il a accepté
   if (invite?.id && match.inviteAccepte) {
     list.push(toPlayer(Number(invite.id), invite.pseudo, false, invite.photoProfil));
   }
@@ -121,6 +123,7 @@ export default function RabbitRacePage({ onNavigate, matchId }: { onNavigate?: (
     if (!raceLiveRef.current) {
       setPlayers(readyPlayers);
     }
+    // L'hôte est toujours prêt, donc on vérifie juste s'il y a un invité accepté
     setAllPlayersReady(accepted && readyPlayers.length >= 2);
     if (invitedUserId) {
       setInviteStatus((prev) => ({ ...prev, [invitedUserId]: accepted ? "accepted" : "pending" }));
@@ -169,13 +172,15 @@ export default function RabbitRacePage({ onNavigate, matchId }: { onNavigate?: (
         sessionStorage.setItem("rabbit_match_id", String(id));
         setCurrentMatchId(id);
         setIsHostView(true);
+        // Ajouter l'hôte immédiatement à la liste des joueurs
+        setPlayers([toPlayer(Number(user.id), user.pseudo, true, user.photoProfil)]);
         onNavigate?.("rabbitRace", id);
       })
       .catch(() => {
         creatingMatchRef.current = false;
       })
       .finally(() => setCreatingMatch(false));
-  }, [currentMatchId, matchId, onNavigate, user?.id]);
+  }, [currentMatchId, matchId, onNavigate, user?.id, user?.pseudo, user?.photoProfil]);
 
   useEffect(() => {
     const loadUsers = async () => {
@@ -218,10 +223,17 @@ export default function RabbitRacePage({ onNavigate, matchId }: { onNavigate?: (
         };
         if (payload.type === "rabbit.invite_accepted") {
           const inviteId = Number(payload.invite_id);
+          const inviteName = payload.invite_pseudo ?? "Invité";
           setInviteStatus((prev) => ({ ...prev, [inviteId]: "accepted" }));
+          // Ajouter l'invité immédiatement à la liste des joueurs
+          setPlayers((prev) => {
+            if (prev.some((entry) => Number(entry.id) === inviteId)) return prev;
+            const host = prev.find((entry) => entry.isHost) ?? toPlayer(Number(user?.id ?? 0), user?.pseudo ?? "Hôte", true, user?.photoProfil);
+            return [host, toPlayer(inviteId, inviteName, false)];
+          });
           setAllPlayersReady(true);
           setNotifications((prev) => [{ id: Date.now(), text: "Tous les joueurs sont prêts." }, ...prev].slice(0, 5));
-          // Rafraîchir l'état du match côté serveur pour récupérer l'hôte/les IDs corrects
+          // Rafraîchir l'état du match côté serveur pour synchroniser
           if (payload.match_id) {
             const matchId = Number(payload.match_id);
             sessionStorage.setItem("rabbit_match_id", String(matchId));
@@ -235,15 +247,16 @@ export default function RabbitRacePage({ onNavigate, matchId }: { onNavigate?: (
                 if (isHostView && ready.length >= 2) setTimeout(() => startRace(), 1000);
               })
               .catch(() => {
-                // fallback local: si l'API échoue, on ajoute l'invité côté client
-                const inviteName = payload.invite_pseudo ?? "Invité";
-                setPlayers((prev) => {
-                  if (prev.some((entry) => Number(entry.id) === inviteId)) return prev;
-                  const host = prev.find((entry) => entry.isHost) ?? toPlayer(Number(user?.id ?? 0), user?.pseudo ?? "Hôte", true, user?.photoProfil);
-                  return [host, toPlayer(inviteId, inviteName, false)];
-                });
+                // fallback: l'invité est déjà ajouté localement ci-dessus
               });
           }
+          // Démarrer automatiquement quand tous sont prêts (2 joueurs minimum)
+          setPlayers((prevPlayers) => {
+            if (isHostView && prevPlayers.length >= 2) {
+              setTimeout(() => startRace(), 1000);
+            }
+            return prevPlayers;
+          });
         }
         if (payload.type === "rabbit.invite_sent") {
           const inviteId = Number(payload.invite_id);
