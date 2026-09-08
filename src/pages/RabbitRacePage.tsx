@@ -38,7 +38,7 @@ function toPlayer(id: number, name: string, isHost = false, photo?: string | nul
   };
 }
 
-function playersFromMatch(match: Match): Player[] {
+function playersFromMatch(match: Match, currentUserId?: number): Player[] {
   const host = match.joueurHote;
   const invite = match.joueurInvite;
   const list: Player[] = [];
@@ -46,6 +46,11 @@ function playersFromMatch(match: Match): Player[] {
   if (host?.id) list.push(toPlayer(Number(host.id), host.pseudo, true, host.photoProfil));
   // L'invité est prêt s'il a accepté
   if (invite?.id && match.inviteAccepte) {
+    list.push(toPlayer(Number(invite.id), invite.pseudo, false, invite.photoProfil));
+  }
+  // Si l'utilisateur actuel est l'invité et n'est pas encore dans la liste, l'ajouter
+  // Cela gère le cas où l'invité a accepté mais inviteAccepte n'est pas encore à true
+  if (currentUserId && invite && Number(invite.id) === currentUserId && !list.some(p => Number(p.id) === currentUserId)) {
     list.push(toPlayer(Number(invite.id), invite.pseudo, false, invite.photoProfil));
   }
   return list;
@@ -147,6 +152,13 @@ export default function RabbitRacePage({ onNavigate, matchId }: { onNavigate?: (
     if (stored) setCurrentMatchId(stored);
   }, [matchId]);
 
+  const loadedMatchRef = useRef(false);
+
+  useEffect(() => {
+    // Réinitialiser le flag de chargement quand le match change
+    loadedMatchRef.current = false;
+  }, [currentMatchId]);
+
   useEffect(() => {
     const loadMatch = async () => {
       if (!currentMatchId) return;
@@ -154,8 +166,16 @@ export default function RabbitRacePage({ onNavigate, matchId }: { onNavigate?: (
         const result = await api.matchParId(currentMatchId);
         const rabbitMatch = result.matchParId;
         if (!rabbitMatch || rabbitMatch.typeJeu !== "course_lapin") return;
-        // Ne mettre à jour que l'état du match, pas les joueurs
-        // pour éviter d'écraser l'hôte ajouté localement
+        // Charger les joueurs depuis l'API seulement au premier chargement
+        // OU si l'utilisateur actuel est l'invité mais n'est pas dans la liste des joueurs
+        const isCurrentUserInvite = rabbitMatch.joueurInvite && Number(rabbitMatch.joueurInvite.id) === Number(user?.id);
+        const currentUserInPlayers = players.some(p => Number(p.id) === Number(user?.id));
+        if (!loadedMatchRef.current || (isCurrentUserInvite && !currentUserInPlayers)) {
+          const readyPlayers = playersFromMatch(rabbitMatch, Number(user?.id));
+          setPlayers(readyPlayers);
+          loadedMatchRef.current = true;
+        }
+        // Mettre à jour l'état du match
         if (rabbitMatch.statut === "en_cours" && !started && !pendingStart && !winner) {
           setPendingStart(true);
           setCountdown((prev) => prev ?? 5);
@@ -165,7 +185,7 @@ export default function RabbitRacePage({ onNavigate, matchId }: { onNavigate?: (
       }
     };
     void loadMatch();
-  }, [currentMatchId, pendingStart, started, winner]);
+  }, [currentMatchId, pendingStart, started, winner, user?.id, players]);
 
   useEffect(() => {
     if (currentMatchId || matchId || !user?.id || creatingMatchRef.current) return;
@@ -239,6 +259,11 @@ export default function RabbitRacePage({ onNavigate, matchId }: { onNavigate?: (
           setPlayers((prev) => {
             if (prev.some((entry) => Number(entry.id) === inviteId)) return prev;
             const host = prev.find((entry) => entry.isHost) ?? toPlayer(Number(user?.id ?? 0), user?.pseudo ?? "Hôte", true, user?.photoProfil);
+            // Si l'utilisateur actuel est l'invité, s'ajouter soi-même
+            if (Number(user?.id) === inviteId) {
+              return [host, toPlayer(inviteId, inviteName, false)];
+            }
+            // Sinon, ajouter l'invité (pour l'hôte)
             return [host, toPlayer(inviteId, inviteName, false)];
           });
           setAllPlayersReady(true);
