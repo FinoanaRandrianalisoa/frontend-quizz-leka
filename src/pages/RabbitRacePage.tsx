@@ -251,7 +251,7 @@ export default function RabbitRacePage({ onNavigate, matchId }: { onNavigate?: (
           });
           setAllPlayersReady(true);
           setNotifications((prev) => [{ id: Date.now(), text: "Tous les joueurs sont prêts." }, ...prev].slice(0, 5));
-          if (isHostView) setTimeout(() => startRace(), 1000);
+          // Le démarrage automatique sera géré par le useEffect sur allPlayersReady
         }
       } catch {
         // ignore errors
@@ -408,7 +408,7 @@ export default function RabbitRacePage({ onNavigate, matchId }: { onNavigate?: (
       clearInterval(pollingInterval);
       socketRef.current = null;
     };
-  }, [currentMatchId, onNavigate, user?.id, user?.photoProfil, user?.pseudo, walkPlayerTo, allPlayersReady, isHostView, players.length, startRace]);
+  }, [currentMatchId, onNavigate, user?.id, user?.photoProfil, user?.pseudo, walkPlayerTo, allPlayersReady, isHostView, players.length]);
 
   useEffect(() => {
     if (!currentMatchId) return;
@@ -448,6 +448,15 @@ export default function RabbitRacePage({ onNavigate, matchId }: { onNavigate?: (
   useEffect(() => {
     setAllPlayersReady(players.length >= 2);
   }, [players]);
+
+  // Démarrer automatiquement la course quand tous sont prêts (si hôte)
+  useEffect(() => {
+    if (allPlayersReady && isHostView && !pendingStart && !started && currentMatchId) {
+      setTimeout(() => {
+        void startRace();
+      }, 1000);
+    }
+  }, [allPlayersReady, isHostView, pendingStart, started, currentMatchId]);
 
   useEffect(() => {
     if (!pendingStart || countdown === null) return;
