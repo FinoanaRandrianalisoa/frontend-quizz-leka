@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Globe, Users, MessageCircle, X, Repeat } from "lucide-react";
+import { Globe, Users, MessageCircle, X, Repeat, AlertTriangle } from "lucide-react";
 import { Button, Card, CardContent, Sheet, SheetHeader, SheetTitle, SheetContent, Dialog, DialogHeader, DialogTitle, DialogContent, DialogFooter } from "../components/ui";
 import { api } from "../lib/api";
 import { quizGlobalApi, type QuizGlobalState } from "../lib/quizGlobalApi";
+import { GraphqlError } from "../lib/graphql";
 import { useAuth } from "../lib/auth";
 import { errMsg } from "../lib/hooks";
 import UserName from "../components/UserName";
@@ -40,6 +41,8 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
   const [players, setPlayers] = useState<Array<{ id: string; pseudo: string; enLigne?: boolean }>>([]);
   const [pendingInvites, setPendingInvites] = useState<Record<string, number>>({});
   const [waiting, setWaiting] = useState<QuizGlobalState[]>([]);
+  const [myActiveGames, setMyActiveGames] = useState<QuizGlobalState[]>([]);
+  const [blockedDialog, setBlockedDialog] = useState(false);
   const [game, setGame] = useState<QuizGlobalState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -93,6 +96,8 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
         (g) => g.status === "WAITING" && g.invitedPlayer?.id && g.playerA?.id === user?.id,
       );
       setPendingInvites(Object.fromEntries(myPending.map((g) => [String(g.invitedPlayer?.id), g.gameId])));
+      // Parties toujours actives (annulables si WAITING, sinon en cours)
+      setMyActiveGames(mineList.filter((g) => g.status !== "FINISHED" && g.status !== "CANCELLED"));
       // Charger automatiquement seulement si matchId est fourni explicitement (navigation directe)
       if (matchId) {
         const res = await quizGlobalApi.get(Number(matchId));
@@ -200,6 +205,28 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
     return Number.isFinite(n) && n > 0 ? n : 0;
   };
 
+  const cancelMyGame = async (gameId: number) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await quizGlobalApi.annuler(gameId);
+      setBlockedDialog(false);
+      await reloadLobbies();
+    } catch (err) {
+      setError(errMsg(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleJoinBlockedError = (err: unknown) => {
+    if (err instanceof GraphqlError && err.code === "PLAYER_ALREADY_IN_GAME") {
+      setBlockedDialog(true);
+      return;
+    }
+    setError(errMsg(err));
+  };
+
   const createGame = async () => {
     setBusy(true);
     setError(null);
@@ -208,7 +235,7 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
       setGame(withServerOffset(res.creerPartieQuizGlobal));
       onNavigate("quizGlobal", res.creerPartieQuizGlobal.gameId);
     } catch (err) {
-      setError(errMsg(err));
+      handleJoinBlockedError(err);
     } finally {
       setBusy(false);
     }
@@ -255,7 +282,7 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
       setGame(withServerOffset(res.rejoindrePartieQuizGlobal));
       onNavigate("quizGlobal", id);
     } catch (err) {
-      setError(errMsg(err));
+      handleJoinBlockedError(err);
     } finally {
       setBusy(false);
     }
@@ -356,6 +383,49 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
           <Button variant="outline" onClick={() => onNavigate("categories", null)}>Retour</Button>
         </div>
         {error && <p className="mb-4 text-sm text-[#D62828]">{error}</p>}
+        {myActiveGames.length > 0 && (
+          <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+            <p className="flex items-center gap-2 text-sm font-semibold text-amber-800">
+              <AlertTriangle size={16} /> Vous êtes déjà engagé dans {myActiveGames.length} partie(s) active(s).
+            </p>
+            <p className="mt-1 mb-3 text-xs text-amber-700">
+              Annulez la partie en attente ou terminez la partie en cours pour pouvoir en créer ou en rejoindre une autre.
+            </p>
+            <div className="space-y-2">
+              {myActiveGames.map((g) => {
+                const isHost = g.playerA?.id === user?.id;
+                const cancelable = g.status === "WAITING" && isHost;
+                return (
+                  <div key={g.gameId} className="flex items-center justify-between gap-2 rounded-xl border border-amber-200 bg-white p-2">
+                    <div className="text-sm min-w-0">
+                      <p className="font-medium truncate">
+                        Partie #{g.gameId}
+                        {g.status === "WAITING"
+                          ? g.invitedPlayer
+                            ? ` — en attente de ${g.invitedPlayer.pseudo}`
+                            : " — en attente d'adversaire"
+                          : g.playerB
+                            ? ` — ${g.playerA?.pseudo} vs ${g.playerB.pseudo}`
+                            : ""}
+                      </p>
+                      <p className="text-xs text-[#64748b]">Status : {g.status}</p>
+                    </div>
+                    <div className="flex shrink-0 gap-2">
+                      {g.status !== "WAITING" && (
+                        <Button size="sm" variant="outline" onClick={() => onNavigate("quizGlobal", g.gameId)}>Reprendre</Button>
+                      )}
+                      {cancelable && (
+                        <Button size="sm" variant="destructive" disabled={busy} onClick={() => void cancelMyGame(g.gameId)}>
+                          Annuler la partie
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
         <div className="grid md:grid-cols-2 gap-6">
           <Card>
             <CardContent className="space-y-4">
@@ -664,6 +734,55 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
           <ChatPanel room="quizGlobal" matchId={game.gameId} spectators={0} className="h-full" />
         </SheetContent>
       </Sheet>
+
+      <Dialog open={blockedDialog} onClose={() => setBlockedDialog(false)}>
+        <DialogHeader>
+          <DialogTitle>Partie existante</DialogTitle>
+        </DialogHeader>
+        <DialogContent className="text-sm text-[#334155]">
+          <p className="flex items-start gap-2 rounded-xl bg-amber-50 border border-amber-200 p-3">
+            <AlertTriangle className="mt-0.5 shrink-0 text-amber-600" size={18} />
+            <span>
+              Vous êtes déjà engagé dans une autre partie. Annulez la partie en attente (avant qu'un adversaire ne la rejoigne)
+              ou reprenez la partie en cours.
+            </span>
+          </p>
+          <div className="space-y-2">
+            {myActiveGames.length === 0 && (
+              <p className="text-sm text-[#64748b]">Aucune partie active détectée — recharge en cours…</p>
+            )}
+            {myActiveGames.map((g) => {
+              const isHost = g.playerA?.id === user?.id;
+              const cancelable = g.status === "WAITING" && isHost;
+              return (
+                <div key={g.gameId} className="flex items-center justify-between gap-2 rounded-xl border border-[#e6f4ea] bg-[#f9f9f9] p-2">
+                  <div className="text-sm min-w-0">
+                    <p className="font-medium truncate">Partie #{g.gameId} — {g.status}</p>
+                    <p className="text-xs text-[#64748b] truncate">
+                      {g.playerB ? `${g.playerA?.pseudo} vs ${g.playerB.pseudo}` : g.invitedPlayer ? `en attente de ${g.invitedPlayer.pseudo}` : "en attente d'adversaire"}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    {g.status !== "WAITING" && (
+                      <Button size="sm" variant="outline" onClick={() => { setBlockedDialog(false); onNavigate("quizGlobal", g.gameId); }}>
+                        Reprendre
+                      </Button>
+                    )}
+                    {cancelable && (
+                      <Button size="sm" variant="destructive" disabled={busy} onClick={() => void cancelMyGame(g.gameId)}>
+                        Annuler la partie
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </DialogContent>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setBlockedDialog(false)}>Fermer</Button>
+        </DialogFooter>
+      </Dialog>
 
       <Dialog open={confirmQuitOpen} onClose={() => setConfirmQuitOpen(false)}>
         <DialogHeader>
