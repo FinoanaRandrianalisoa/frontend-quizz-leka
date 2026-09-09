@@ -15,7 +15,7 @@ import { BACKEND_URL, GRAPHQL_URL, WS_URL } from '@/config/backend'
 
 const TARGETS = [4, 8, 12] as const;
 const LETTERS = ["A", "B", "C", "D"] as const;
-const WAITING_EXPIRY_MS = 5 * 60 * 1000;
+const WAITING_EXPIRY_MS = 30 * 60 * 1000;
 
 function remainingSeconds(deadline?: string | null, serverOffset = 0) {
   if (!deadline) return 0;
@@ -96,15 +96,20 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
 
   const reloadLobbies = async () => {
     try {
-      const [open, mine] = await Promise.all([quizGlobalApi.disponibles(), quizGlobalApi.mesParties()]);
+      const [open, mine, active] = await Promise.all([
+        quizGlobalApi.disponibles(),
+        quizGlobalApi.mesParties(),
+        quizGlobalApi.myActiveGame(),
+      ]);
       setWaiting(open.partiesQuizGlobalDisponibles ?? []);
       const mineList = mine.mesPartiesQuizGlobal ?? [];
       const myPending = mineList.filter(
         (g) => g.status === "WAITING" && g.invitedPlayer?.id && g.playerA?.id === user?.id,
       );
       setPendingInvites(Object.fromEntries(myPending.map((g) => [String(g.invitedPlayer?.id), g.gameId])));
-      // Parties toujours actives (annulables si WAITING, sinon en cours)
-      setMyActiveGames(mineList.filter((g) => g.status !== "FINISHED" && g.status !== "CANCELLED"));
+      // Partie réellement active (unique). Une partie FINISHED/CANCELLED/EXPIRED/ABANDONED
+      // n'apparaît jamais ici et ne doit jamais bloquer le joueur.
+      setMyActiveGames(active.myActiveGame ? [active.myActiveGame] : []);
       // Charger automatiquement seulement si matchId est fourni explicitement (navigation directe)
       if (matchId) {
         const res = await quizGlobalApi.get(Number(matchId));
@@ -377,7 +382,7 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
 
   const quitInProgress = game
     && game.status !== "FINISHED"
-    && ["WAITING", "THEME_SELECTION", "QUESTION_READING", "ANSWERING", "QUESTION_FINISHED", "TIE_BREAK"].includes(game.status);
+    && ["WAITING", "THEME_SELECTION", "QUESTION_READING", "ANSWERING", "QUESTION_FINISHED", "TIE_BREAK_THEME"].includes(game.status);
 
   if (!game) {
     return (
@@ -393,10 +398,10 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
         {myActiveGames.length > 0 && (
           <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4">
             <p className="flex items-center gap-2 text-sm font-semibold text-amber-800">
-              <AlertTriangle size={16} /> Vous êtes déjà engagé dans {myActiveGames.length} partie(s) active(s).
+              <AlertTriangle size={16} /> Vous avez déjà une partie active.
             </p>
             <p className="mt-1 mb-3 text-xs text-amber-700">
-              Annulez la partie en attente ou terminez la partie en cours pour pouvoir en créer ou en rejoindre une autre.
+              Annulez la partie en attente ou reprenez la partie en cours pour pouvoir en créer une autre.
             </p>
             <div className="space-y-2">
               {myActiveGames.map((g) => {
@@ -412,15 +417,13 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
                             ? ` — en attente de ${g.invitedPlayer.pseudo}`
                             : " — en attente d'adversaire"
                           : g.playerB
-                            ? ` — ${g.playerA?.pseudo} vs ${g.playerB.pseudo}`
+                            ? ` — ${g.playerA?.pseudo} vs ${g.playerB?.pseudo}`
                             : ""}
                       </p>
-                      <p className="text-xs text-[#64748b]">Status : {g.status}</p>
+                      <p className="text-xs text-[#64748b]">Statut : {g.status}</p>
                     </div>
                     <div className="flex shrink-0 gap-2">
-                      {g.status !== "WAITING" && (
-                        <Button size="sm" variant="outline" onClick={() => onNavigate("quizGlobal", g.gameId)}>Reprendre</Button>
-                      )}
+                      <Button size="sm" variant="outline" onClick={() => onNavigate("quizGlobal", g.gameId)}>Reprendre</Button>
                       {cancelable && (
                         <Button size="sm" variant="destructive" disabled={busy} onClick={() => void cancelMyGame(g.gameId)}>
                           Annuler la partie

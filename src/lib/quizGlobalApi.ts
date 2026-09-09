@@ -100,6 +100,11 @@ export const quizGlobalApi = {
       `{ mesPartiesQuizGlobal { ${STATE} } }`,
     );
   },
+  myActiveGame() {
+    return gql<{ myActiveGame: QuizGlobalState | null }>(
+      `{ myActiveGame { ${STATE} } }`,
+    );
+  },
   mesInvitations() {
     return gql<{ mesInvitationsQuizGlobal: QuizGlobalState[] }>(
       `{ mesInvitationsQuizGlobal { ${STATE} } }`,
