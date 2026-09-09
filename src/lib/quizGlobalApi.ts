@@ -39,6 +39,7 @@ export type QuizGlobalState = {
   phaseDeadline?: string | null;
   serverTime: string;
   serverOffset?: number;
+  createdAt?: string | null;
   themes: QuizGlobalTheme[];
   playerA?: QuizGlobalPlayerView | null;
   playerB?: QuizGlobalPlayerView | null;
@@ -58,7 +59,7 @@ export type QuizGlobalState = {
 
 const STATE = `
   gameId status targetQuestions currentTurn activeSeat isTieBreak mise miseEffective
-  phaseStartedAt phaseDeadline serverTime mySeat winnerId
+  phaseStartedAt phaseDeadline serverTime createdAt mySeat winnerId
   themes { id nom icone remaining selectable }
   playerA { id pseudo seat score }
   playerB { id pseudo seat score }

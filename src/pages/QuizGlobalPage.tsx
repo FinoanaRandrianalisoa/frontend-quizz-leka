@@ -15,11 +15,18 @@ import { BACKEND_URL, GRAPHQL_URL, WS_URL } from '@/config/backend'
 
 const TARGETS = [4, 8, 12] as const;
 const LETTERS = ["A", "B", "C", "D"] as const;
+const WAITING_EXPIRY_MS = 5 * 60 * 1000;
 
 function remainingSeconds(deadline?: string | null, serverOffset = 0) {
   if (!deadline) return 0;
   const dead = new Date(deadline).getTime();
   return Math.max(0, Math.ceil((dead - (Date.now() - serverOffset)) / 1000));
+}
+
+function waitingLeftSeconds(game: QuizGlobalState | null) {
+  if (game?.status !== "WAITING" || !game.createdAt) return null;
+  const exp = new Date(game.createdAt).getTime() + WAITING_EXPIRY_MS;
+  return Math.max(0, Math.ceil((exp - (Date.now() - (game.serverOffset ?? 0))) / 1000));
 }
 
 function phaseDuration(state: QuizGlobalState | null) {
@@ -550,7 +557,36 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
       {error && <p className="mb-4 text-sm text-[#D62828]">{error}</p>}
 
       {game.status === "WAITING" && (
-        <Card><CardContent><p>En attente d'un adversaire… Partagez la partie ou attendez qu'un joueur rejoigne le salon.</p></CardContent></Card>
+        <Card>
+          <CardContent className="space-y-3">
+            <p>En attente d'un adversaire… Partagez la partie ou attendez qu'un joueur rejoigne le salon.</p>
+            {(() => {
+              const left = waitingLeftSeconds(game);
+              if (left == null || left <= 0) return null;
+              return (
+                <p className="text-xs text-[#64748b]">
+                  Annulation automatique dans {Math.floor(left / 60)} min {left % 60} s si personne ne rejoint.
+                </p>
+              );
+            })()}
+            {game.playerA?.id === user?.id && (
+              <div className="flex gap-2">
+                <Button variant="destructive" size="sm" disabled={busy} onClick={() => void cancelMyGame(game.gameId)}>
+                  Annuler la partie
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {game.status === "CANCELLED" && (
+        <Card>
+          <CardContent className="space-y-3">
+            <p>Cette partie a été annulée : aucun adversaire ne l'a rejointe dans les temps.</p>
+            <Button onClick={() => onNavigate("categories", null)}>Retour au lobby</Button>
+          </CardContent>
+        </Card>
       )}
 
       {game.status === "THEME_SELECTION" && (
