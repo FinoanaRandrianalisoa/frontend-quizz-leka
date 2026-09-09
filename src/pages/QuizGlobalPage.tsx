@@ -94,7 +94,7 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
       );
       setPendingInvites(Object.fromEntries(myPending.map((g) => [String(g.invitedPlayer?.id), g.gameId])));
       // Charger automatiquement seulement si matchId est fourni explicitement (navigation directe)
-      if (!game && matchId) {
+      if (matchId) {
         const res = await quizGlobalApi.get(Number(matchId));
         setGame(withServerOffset(res.partieQuizGlobal));
       }

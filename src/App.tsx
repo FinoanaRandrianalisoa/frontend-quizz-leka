@@ -198,7 +198,8 @@ function AppShell() {
     if (!user?.id) return;
 
     const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${wsProtocol}//${window.location.host}/ws/notifications/`;
+    const token = localStorage.getItem("access_token") || "";
+    const wsUrl = `${wsProtocol}//${window.location.host}/ws/notifications/?token=${encodeURIComponent(token)}`;
     console.log("Connecting to notifications WebSocket:", wsUrl);
     const ws = new WebSocket(wsUrl);
 
@@ -410,7 +411,7 @@ function AppShell() {
         </Dialog>
       )}
 
-      {isAuth && (
+      {!isAuth && (
         <Dialog open={Boolean(quizInvite)} onClose={closeQuizInvite}>
           <DialogHeader className="relative">
             <DialogTitle>🎯 Invitation Quizz Global</DialogTitle>
