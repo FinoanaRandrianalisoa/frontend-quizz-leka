@@ -151,11 +151,23 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
     const apiBase = GRAPHQL_URL;
     const apiRoot = BACKEND_URL;
     const wsBase = WS_URL;
-    const ws = new WebSocket(`${wsBase}/ws/quiz-global/${game.gameId}/?token=${encodeURIComponent(token)}`);
+    const wsUrl = `${wsBase}/ws/quiz-global/${game.gameId}/?token=${encodeURIComponent(token)}`;
+    console.log("Connecting to Quiz Global WebSocket:", wsUrl);
+    const ws = new WebSocket(wsUrl);
     socketRef.current = ws;
+    
+    ws.onopen = () => {
+      console.log("Quiz Global WebSocket connected for game:", game.gameId);
+    };
+    
+    ws.onerror = (error) => {
+      console.error("Quiz Global WebSocket error:", error);
+    };
+    
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
+        console.log("Quiz Global WebSocket message received:", data);
         if (data.event === "ERROR") {
           setError(data.message || "Action refusée.");
           return;
@@ -168,6 +180,7 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
           setLastThemeChoice({ theme: data.chosenTheme, seat: data.chosenBySeat });
         }
         if (data.gameId) {
+          console.log("Updating game state, new status:", data.status);
           setGame(withServerOffset(data));
           setError(null);
           if (data.status !== "ANSWERING") {
@@ -175,7 +188,8 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
             setMyPick(null);
           }
         }
-      } catch {
+      } catch (err) {
+        console.error("Error parsing WebSocket message:", err);
         // ignore
       }
     };
