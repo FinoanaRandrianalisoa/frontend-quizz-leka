@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Bell, Trophy, Users, MessageCircle, Star, Check } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage, Button, Card, CardContent } from "../components/ui";
 import { api } from "../lib/api";
+import { quizGlobalApi } from "../lib/quizGlobalApi";
 import { useAsync } from "../lib/hooks";
 import { initial, relativeTime } from "../lib/format";
 import UserName from "../components/UserName";
@@ -38,6 +39,13 @@ const isRabbitInvitationNotification = (item: Pick<NotificationItem, "type" | "t
 const isRabbitReadyNotification = (item: Pick<NotificationItem, "type" | "titre" | "message">) => {
   const titre = (item.titre ?? "").trim().toLowerCase();
   return titre === "tous les joueurs sont prêts" || ((item.message ?? "").toLowerCase().includes("compte à rebours"));
+};
+
+const isQuizGlobalInvitationNotification = (item: Pick<NotificationItem, "type" | "titre" | "message">) => {
+  if (!item) return false;
+  const titre = (item.titre ?? "").trim().toLowerCase();
+  const haystack = `${item.titre ?? ""} ${item.message ?? ""}`.toLowerCase();
+  return titre === "invitation quizz global" || (item.type === "defi_recu" && haystack.includes("quizz global"));
 };
 
 export default function NotificationsPage({ onNavigate }: { onNavigate?: (p: string, id?: number | null) => void }) {
@@ -235,6 +243,20 @@ export default function NotificationsPage({ onNavigate }: { onNavigate?: (p: str
     }
   };
 
+  const acceptQuizGlobalInvitation = async (gameId: number, notificationId?: string) => {
+    if (notificationId) {
+      await api.marquerNotificationLue(Number(notificationId)).catch(() => undefined);
+    }
+    try {
+      const res = await quizGlobalApi.rejoindre(gameId);
+      window.dispatchEvent(new CustomEvent(refreshNotificationEvent));
+      onNavigate?.("quizGlobal", res.rejoindrePartieQuizGlobal.gameId || gameId);
+    } catch {
+      window.dispatchEvent(new CustomEvent(refreshNotificationEvent));
+      onNavigate?.("quizGlobal", gameId);
+    }
+  };
+
   const handleNotificationClick = async (n: { id: string; type: "challenge" | "social" | "win" | "achieve"; title: string; desc: string; read: boolean }) => {
     if (!n.read) {
       setReadIds((current) => new Set([...current, n.id]));
@@ -242,12 +264,16 @@ export default function NotificationsPage({ onNavigate }: { onNavigate?: (p: str
     if (n.type !== "challenge") return;
     const matchingNotification = notificationsData.find((item) => String(item.id) === n.id);
     const rabbitMatchId = matchingNotification?.referenceId ?? null;
+    const quizGlobalGameId = matchingNotification?.referenceId ?? null;
     if (rabbitMatchId && isRabbitInvitationNotification(matchingNotification ?? {} as NotificationItem)) {
       return;
     }
     if (rabbitMatchId && isRabbitReadyNotification(matchingNotification ?? {} as NotificationItem)) {
       sessionStorage.setItem("rabbit_match_id", String(rabbitMatchId));
       onNavigate?.("rabbitRace", Number(rabbitMatchId));
+      return;
+    }
+    if (quizGlobalGameId && isQuizGlobalInvitationNotification(matchingNotification ?? {} as NotificationItem)) {
       return;
     }
     await startChallengeFromNotification();
@@ -300,8 +326,10 @@ export default function NotificationsPage({ onNavigate }: { onNavigate?: (p: str
                 {n.type === "challenge" && !n.read && (() => {
                   const matchingNotification = notificationsData.find((item) => String(item.id) === n.id);
                   const rabbitMatchId = matchingNotification?.referenceId ?? null;
+                  const quizGlobalGameId = matchingNotification?.referenceId ?? null;
                   const rabbitInvite = Boolean(rabbitMatchId && isRabbitInvitationNotification(matchingNotification ?? {} as NotificationItem));
                   const rabbitReady = Boolean(rabbitMatchId && isRabbitReadyNotification(matchingNotification ?? {} as NotificationItem));
+                  const quizGlobalInvite = Boolean(quizGlobalGameId && isQuizGlobalInvitationNotification(matchingNotification ?? {} as NotificationItem));
                   if (n.id.startsWith("friend-")) {
                     return (
                       <Button size="sm" className="shrink-0" onClick={(e) => { e.stopPropagation(); void handleAccept(n.id, n.id); }}>
@@ -316,6 +344,18 @@ export default function NotificationsPage({ onNavigate }: { onNavigate?: (p: str
                           Accepter
                         </Button>
                         <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); void refuseRabbitInvitation(Number(rabbitMatchId), n.id); }}>
+                          Refuser
+                        </Button>
+                      </div>
+                    );
+                  }
+                  if (quizGlobalInvite && quizGlobalGameId) {
+                    return (
+                      <div className="flex shrink-0 flex-col gap-1">
+                        <Button size="sm" onClick={(e) => { e.stopPropagation(); void acceptQuizGlobalInvitation(Number(quizGlobalGameId), n.id); }}>
+                          Accepter
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); void quizGlobalApi.refuserInvitation(Number(quizGlobalGameId)).catch(() => undefined); void api.marquerNotificationLue(Number(n.id)).catch(() => undefined); window.dispatchEvent(new CustomEvent(refreshNotificationEvent)); }}>
                           Refuser
                         </Button>
                       </div>
