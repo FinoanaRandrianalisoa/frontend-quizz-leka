@@ -109,31 +109,6 @@ export default function QuizGlobalPage({ onNavigate, matchId }: { onNavigate: Na
     return () => clearInterval(id);
   }, [matchId, user?.id]);
 
-  // Polling pour vérifier si une partie créée par l'hôte est passée en THEME_SELECTION
-  useEffect(() => {
-    if (!user?.id) return;
-    
-    const checkHostGameStatus = async () => {
-      try {
-        const res = await quizGlobalApi.mesParties();
-        const myGames = res.mesPartiesQuizGlobal ?? [];
-        // Chercher une partie où l'hôte est playerA et le statut est THEME_SELECTION
-        const activeGame = myGames.find(
-          (g) => g.status === "THEME_SELECTION" && g.playerA?.id === user.id && !matchId
-        );
-        if (activeGame) {
-          console.log("Host game moved to THEME_SELECTION, redirecting to:", activeGame.gameId);
-          onNavigate("quizGlobal", activeGame.gameId);
-        }
-      } catch (err) {
-        console.error("Error checking host game status:", err);
-      }
-    };
-
-    const id = setInterval(() => void checkHostGameStatus(), 3000);
-    return () => clearInterval(id);
-  }, [user?.id, matchId]);
-
   useEffect(() => {
     if (!matchId) return;
     void quizGlobalApi.get(matchId)
