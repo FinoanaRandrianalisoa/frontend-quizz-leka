@@ -26,8 +26,6 @@ html, body, #root {
   font-family: 'Inter', system-ui, sans-serif;
   color: #1f2a1f;
   background: linear-gradient(180deg, #f5fbf6 0%, #eef9f1 100%);
-  -webkit-text-size-adjust: 100%;
-  text-size-adjust: 100%;
 }
 
 * { box-sizing: border-box; }
