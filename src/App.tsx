@@ -26,6 +26,7 @@ import AdminUsersPage from "./pages/AdminUsersPage";
 import { AuthProvider, useAuth } from "./lib/auth";
 import { api } from "./lib/api";
 import { quizGlobalApi, type QuizGlobalState } from "./lib/quizGlobalApi";
+import { WS_URL } from "./config/backend";
 
 export type Page =
   | "login" | "register"
@@ -197,9 +198,8 @@ function AppShell() {
   useEffect(() => {
     if (!user?.id) return;
 
-    const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const token = localStorage.getItem("access_token") || "";
-    const wsUrl = `${wsProtocol}//${window.location.host}/ws/notifications/?token=${encodeURIComponent(token)}`;
+    const wsUrl = `${WS_URL}/ws/notifications/?token=${encodeURIComponent(token)}`;
     console.log("Connecting to notifications WebSocket:", wsUrl);
     const ws = new WebSocket(wsUrl);
 
