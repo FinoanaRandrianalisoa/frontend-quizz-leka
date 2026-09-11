@@ -967,4 +967,10 @@ export const api = {
       { depuis: depuis || null, jusquA: jusquA || null },
     )
   },
+  importerQuestionsExcel(themeId: number, fichierBase64: string) {
+    return gql<{ importerQuestionsExcel: string }>(
+      `mutation($themeId: Int!, $fichierBase64: String!) { importerQuestionsExcel(themeId: $themeId, fichierBase64: $fichierBase64) }`,
+      { themeId, fichierBase64 },
+    )
+  },
 }

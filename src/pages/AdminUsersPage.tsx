@@ -27,6 +27,8 @@ import {
   UserPlus,
   UserMinus,
   Settings,
+  Upload,
+  FileSpreadsheet,
 } from "lucide-react"
 
 import {
@@ -112,6 +114,10 @@ export default function AdminUsersPage() {
   const [showAllQuestions, setShowAllQuestions] = useState(false)
 
   const [showAllTransactions, setShowAllTransactions] = useState(false)
+
+  const [importingFile, setImportingFile] = useState(false)
+
+  const [importResult, setImportResult] = useState<string | null>(null)
 
   const stats = useAsync(
     () => api.statsPlateforme().then((d) => d.statsPlateforme),
@@ -387,6 +393,34 @@ export default function AdminUsersPage() {
       if (draft.id === questionId) resetDraft()
     } catch (error) {
       alert(errMsg(error))
+    }
+  }
+
+  const handleImportExcel = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file || !selectedThemeId) return
+
+    setImportingFile(true)
+    setImportResult(null)
+
+    try {
+      const reader = new FileReader()
+      reader.onload = async (e) => {
+        const base64 = (e.target?.result as string).split(',')[1]
+        try {
+          const result = await api.importerQuestionsExcel(selectedThemeId, base64)
+          setImportResult(result.importerQuestionsExcel)
+          await refreshAll()
+        } catch (error) {
+          setImportResult("Erreur lors de l'import: " + errMsg(error))
+        } finally {
+          setImportingFile(false)
+        }
+      }
+      reader.readAsDataURL(file)
+    } catch (error) {
+      setImportResult("Erreur lors de la lecture du fichier: " + errMsg(error))
+      setImportingFile(false)
     }
   }
 
@@ -1031,16 +1065,48 @@ export default function AdminUsersPage() {
                 <h3 className="font-semibold text-[#2D3142]">
                   Questions du thème
                 </h3>
-                <Button
-                  size="sm"
-                  variant="success"
-                  onClick={resetDraft}
-                  className="gap-2"
-                >
-                  <Plus size={14} />
-                  Nouvelle question
-                </Button>
+                <div className="flex gap-2">
+                  <label className="cursor-pointer">
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls"
+                      onChange={handleImportExcel}
+                      disabled={importingFile || !selectedThemeId}
+                      className="hidden"
+                    />
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={importingFile || !selectedThemeId}
+                      className="gap-2"
+                    >
+                      <FileSpreadsheet size={14} />
+                      {importingFile ? "Import..." : "Importer Excel"}
+                    </Button>
+                  </label>
+                  <Button
+                    size="sm"
+                    variant="success"
+                    onClick={resetDraft}
+                    className="gap-2"
+                  >
+                    <Plus size={14} />
+                    Nouvelle question
+                  </Button>
+                </div>
               </div>
+
+              {importResult && (
+                <div
+                  className={`rounded-xl p-3 text-sm ${
+                    importResult.includes("Erreur")
+                      ? "bg-red-50 text-red-700 border border-red-200"
+                      : "bg-green-50 text-green-700 border border-green-200"
+                  }`}
+                >
+                  {importResult}
+                </div>
+              )}
 
               {questionsLoading ? (
                 <div className="text-sm text-[#A0A0A0]">
