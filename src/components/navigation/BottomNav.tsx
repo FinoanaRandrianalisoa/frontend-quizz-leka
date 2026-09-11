@@ -1,18 +1,18 @@
-import { Home, Gamepad2, MessageCircle, Wallet, User } from "lucide-react";
+import { Home, Gamepad2, MessageCircle, Wallet, User } from "lucide-react"
 
 interface BottomNavProps {
-  currentPage: string;
-  onNavigate: (page: string) => void;
+  currentPage: string
+  onNavigate: (page: string) => void
 }
 
 const tabs = [
-  { id: "home",      label: "Accueil", icon: Home },
-  { id: "lobby",     label: "Jouer",   icon: Gamepad2 },
-  { id: "community", label: "Social",  icon: MessageCircle },
-  { id: "messages",  label: "Messages", icon: MessageCircle },
-  { id: "wallet",    label: "Wallet",  icon: Wallet },
-  { id: "profile",   label: "Profil",  icon: User },
-];
+  { id: "home", label: "Accueil", icon: Home },
+  { id: "lobby", label: "Jouer", icon: Gamepad2 },
+  { id: "community", label: "Social", icon: MessageCircle },
+  { id: "messages", label: "Messages", icon: MessageCircle },
+  { id: "wallet", label: "Wallet", icon: Wallet },
+  { id: "profile", label: "Profil", icon: User },
+]
 
 export default function BottomNav({ currentPage, onNavigate }: BottomNavProps) {
   return (
@@ -32,5 +32,5 @@ export default function BottomNav({ currentPage, onNavigate }: BottomNavProps) {
         ))}
       </div>
     </nav>
-  );
+  )
 }

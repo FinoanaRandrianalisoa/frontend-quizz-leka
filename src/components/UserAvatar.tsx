@@ -1,11 +1,11 @@
-import { Avatar, AvatarFallback, AvatarImage } from "./ui";
-import { initial } from "../lib/format";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui"
+import { initial } from "../lib/format"
 
 type AvatarUser = {
-  pseudo?: string | null;
-  photoProfil?: string | null;
-  enLigne?: boolean;
-} | null | undefined;
+  pseudo?: string | null
+  photoProfil?: string | null
+  enLigne?: boolean
+} | null | undefined
 
 export default function UserAvatar({
   user,
@@ -15,16 +15,16 @@ export default function UserAvatar({
   online,
   className = "",
 }: {
-  user?: AvatarUser;
-  name?: string | null;
-  photo?: string | null;
-  size?: "sm" | "md" | "lg" | "xl";
-  online?: boolean;
-  className?: string;
+  user?: AvatarUser
+  name?: string | null
+  photo?: string | null
+  size?: "sm" | "md" | "lg" | "xl"
+  online?: boolean
+  className?: string
 }) {
-  const src = (photo || user?.photoProfil || "").trim();
-  const label = name || user?.pseudo || "?";
-  const onlineState = online ?? user?.enLigne;
+  const src = (photo || user?.photoProfil || "").trim()
+  const label = name || user?.pseudo || "?"
+  const onlineState = online ?? user?.enLigne
 
   return (
     <Avatar size={size} online={onlineState} className={className}>
@@ -34,5 +34,5 @@ export default function UserAvatar({
         <AvatarFallback>{initial(label)}</AvatarFallback>
       )}
     </Avatar>
-  );
+  )
 }

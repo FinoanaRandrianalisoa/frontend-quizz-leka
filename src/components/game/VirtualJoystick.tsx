@@ -1,133 +1,143 @@
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect } from "react"
 
 interface VirtualJoystickProps {
-  onMove: (x: number, y: number) => void;
-  onRelease: () => void;
-  size?: number;
+  onMove: (x: number, y: number) => void
+  onRelease: () => void
+  size?: number
 }
 
-export default function VirtualJoystick({ onMove, onRelease, size = 120 }: VirtualJoystickProps) {
-  const joystickRef = useRef<HTMLDivElement>(null);
-  const knobRef = useRef<HTMLDivElement>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
+export default function VirtualJoystick({
+  onMove,
+  onRelease,
+  size = 120,
+}: VirtualJoystickProps) {
+  const joystickRef = useRef<HTMLDivElement>(null)
+  const knobRef = useRef<HTMLDivElement>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const [position, setPosition] = useState({ x: 0, y: 0 })
 
-  const handleStart = (e: React.TouchEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(true);
-    updatePosition(e);
-  };
+  const handleStart = (
+    e: React.TouchEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>,
+  ) => {
+    e.preventDefault()
+    setIsDragging(true)
+    updatePosition(e)
+  }
 
   const handleMove = (e: TouchEvent | MouseEvent) => {
-    if (!isDragging) return;
-    e.preventDefault();
-    updatePositionNative(e);
-  };
+    if (!isDragging) return
+    e.preventDefault()
+    updatePositionNative(e)
+  }
 
   const handleEnd = () => {
-    setIsDragging(false);
-    setPosition({ x: 0, y: 0 });
-    onRelease();
-  };
+    setIsDragging(false)
+    setPosition({ x: 0, y: 0 })
+    onRelease()
+  }
 
-  const updatePosition = (e: React.TouchEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>) => {
-    if (!joystickRef.current) return;
+  const updatePosition = (
+    e: React.TouchEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>,
+  ) => {
+    if (!joystickRef.current) return
 
-    const rect = joystickRef.current.getBoundingClientRect();
-    const centerX = rect.width / 2;
-    const centerY = rect.height / 2;
+    const rect = joystickRef.current.getBoundingClientRect()
+    const centerX = rect.width / 2
+    const centerY = rect.height / 2
 
-    let clientX: number, clientY: number;
+    let clientX: number, clientY: number
 
     if ("touches" in e) {
-      clientX = e.touches[0].clientX;
-      clientY = e.touches[0].clientY;
+      clientX = e.touches[0].clientX
+      clientY = e.touches[0].clientY
     } else {
-      clientX = e.clientX;
-      clientY = e.clientY;
+      clientX = e.clientX
+      clientY = e.clientY
     }
 
-    const deltaX = clientX - rect.left - centerX;
-    const deltaY = clientY - rect.top - centerY;
+    const deltaX = clientX - rect.left - centerX
+    const deltaY = clientY - rect.top - centerY
 
-    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-    const maxDistance = size / 2;
+    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
+    const maxDistance = size / 2
 
-    let normalizedX = deltaX;
-    let normalizedY = deltaY;
+    let normalizedX = deltaX
+    let normalizedY = deltaY
 
     if (distance > maxDistance) {
-      const angle = Math.atan2(deltaY, deltaX);
-      normalizedX = Math.cos(angle) * maxDistance;
-      normalizedY = Math.sin(angle) * maxDistance;
+      const angle = Math.atan2(deltaY, deltaX)
+      normalizedX = Math.cos(angle) * maxDistance
+      normalizedY = Math.sin(angle) * maxDistance
     }
 
-    const normalizedValueX = normalizedX / maxDistance;
-    const normalizedValueY = normalizedY / maxDistance;
+    const normalizedValueX = normalizedX / maxDistance
+    const normalizedValueY = normalizedY / maxDistance
 
-    setPosition({ x: normalizedX, y: normalizedY });
-    onMove(normalizedValueX, normalizedValueY);
-  };
+    setPosition({ x: normalizedX, y: normalizedY })
+    onMove(normalizedValueX, normalizedValueY)
+  }
 
   const updatePositionNative = (e: TouchEvent | MouseEvent) => {
-    if (!joystickRef.current) return;
+    if (!joystickRef.current) return
 
-    const rect = joystickRef.current.getBoundingClientRect();
-    const centerX = rect.width / 2;
-    const centerY = rect.height / 2;
+    const rect = joystickRef.current.getBoundingClientRect()
+    const centerX = rect.width / 2
+    const centerY = rect.height / 2
 
-    let clientX: number, clientY: number;
+    let clientX: number, clientY: number
 
     if ("touches" in e) {
-      clientX = e.touches[0].clientX;
-      clientY = e.touches[0].clientY;
+      clientX = e.touches[0].clientX
+      clientY = e.touches[0].clientY
     } else {
-      clientX = e.clientX;
-      clientY = e.clientY;
+      clientX = e.clientX
+      clientY = e.clientY
     }
 
-    const deltaX = clientX - rect.left - centerX;
-    const deltaY = clientY - rect.top - centerY;
+    const deltaX = clientX - rect.left - centerX
+    const deltaY = clientY - rect.top - centerY
 
-    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-    const maxDistance = size / 2;
+    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
+    const maxDistance = size / 2
 
-    let normalizedX = deltaX;
-    let normalizedY = deltaY;
+    let normalizedX = deltaX
+    let normalizedY = deltaY
 
     if (distance > maxDistance) {
-      const angle = Math.atan2(deltaY, deltaX);
-      normalizedX = Math.cos(angle) * maxDistance;
-      normalizedY = Math.sin(angle) * maxDistance;
+      const angle = Math.atan2(deltaY, deltaX)
+      normalizedX = Math.cos(angle) * maxDistance
+      normalizedY = Math.sin(angle) * maxDistance
     }
 
-    const normalizedValueX = normalizedX / maxDistance;
-    const normalizedValueY = normalizedY / maxDistance;
+    const normalizedValueX = normalizedX / maxDistance
+    const normalizedValueY = normalizedY / maxDistance
 
-    setPosition({ x: normalizedX, y: normalizedY });
-    onMove(normalizedValueX, normalizedValueY);
-  };
+    setPosition({ x: normalizedX, y: normalizedY })
+    onMove(normalizedValueX, normalizedValueY)
+  }
 
   useEffect(() => {
-    const handleTouchMove = (e: TouchEvent) => handleMove(e);
-    const handleTouchEnd = () => handleEnd();
-    const handleMouseMove = (e: MouseEvent) => handleMove(e);
-    const handleMouseUp = () => handleEnd();
+    const handleTouchMove = (e: TouchEvent) => handleMove(e)
+    const handleTouchEnd = () => handleEnd()
+    const handleMouseMove = (e: MouseEvent) => handleMove(e)
+    const handleMouseUp = () => handleEnd()
 
     if (isDragging) {
-      document.addEventListener("touchmove", handleTouchMove, { passive: false });
-      document.addEventListener("touchend", handleTouchEnd);
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
+      document.addEventListener("touchmove", handleTouchMove, {
+        passive: false,
+      })
+      document.addEventListener("touchend", handleTouchEnd)
+      document.addEventListener("mousemove", handleMouseMove)
+      document.addEventListener("mouseup", handleMouseUp)
     }
 
     return () => {
-      document.removeEventListener("touchmove", handleTouchMove);
-      document.removeEventListener("touchend", handleTouchEnd);
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
-    };
-  }, [isDragging]);
+      document.removeEventListener("touchmove", handleTouchMove)
+      document.removeEventListener("touchend", handleTouchEnd)
+      document.removeEventListener("mousemove", handleMouseMove)
+      document.removeEventListener("mouseup", handleMouseUp)
+    }
+  }, [isDragging])
 
   return (
     <div
@@ -149,5 +159,5 @@ export default function VirtualJoystick({ onMove, onRelease, size = 120 }: Virtu
         }}
       />
     </div>
-  );
+  )
 }

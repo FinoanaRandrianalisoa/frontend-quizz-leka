@@ -1,53 +1,79 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react"
 
 interface QuizTimerProps {
-  duration: number;
-  onExpire?: () => void;
-  variant?: "circular" | "linear";
-  running?: boolean;
-  size?: "sm" | "md" | "lg";
+  duration: number
+  onExpire?: () => void
+  variant?: "circular" | "linear"
+  running?: boolean
+  size?: "sm" | "md" | "lg"
   /** Valeur pilotée de l'extérieur (ex. deadline serveur). Quand elle est fournie, le compte à rebours interne est désactivé. */
-  remaining?: number | null;
+  remaining?: number | null
 }
 
-export default function QuizTimer({ duration, onExpire, variant = "circular", running = true, size = "md", remaining = null }: QuizTimerProps) {
-  const [internalRemaining, setInternalRemaining] = useState(duration);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const expiredRef = useRef(false);
-  const controlled = remaining !== null;
+export default function QuizTimer({
+  duration,
+  onExpire,
+  variant = "circular",
+  running = true,
+  size = "md",
+  remaining = null,
+}: QuizTimerProps) {
+  const [internalRemaining, setInternalRemaining] = useState(duration)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const expiredRef = useRef(false)
+  const controlled = remaining !== null
 
   useEffect(() => {
-    setInternalRemaining(duration);
-    expiredRef.current = false;
-  }, [duration]);
+    setInternalRemaining(duration)
+    expiredRef.current = false
+  }, [duration])
 
   useEffect(() => {
-    if (controlled) { clearInterval(intervalRef.current!); return; }
-    if (!running) { clearInterval(intervalRef.current!); return; }
+    if (controlled) {
+      clearInterval(intervalRef.current!)
+      return
+    }
+    if (!running) {
+      clearInterval(intervalRef.current!)
+      return
+    }
     intervalRef.current = setInterval(() => {
-      setInternalRemaining(r => {
+      setInternalRemaining((r) => {
         if (r <= 1) {
-          clearInterval(intervalRef.current!);
-          if (!expiredRef.current) { expiredRef.current = true; onExpire?.(); }
-          return 0;
+          clearInterval(intervalRef.current!)
+          if (!expiredRef.current) {
+            expiredRef.current = true
+            onExpire?.()
+          }
+          return 0
         }
-        return r - 1;
-      });
-    }, 1000);
-    return () => clearInterval(intervalRef.current!);
-  }, [running, duration, controlled]);
+        return r - 1
+      })
+    }, 1000)
+    return () => clearInterval(intervalRef.current!)
+  }, [running, duration, controlled])
 
-  const remainingSeconds = controlled ? Math.round(remaining) : internalRemaining;
-  const pct   = duration > 0 ? remainingSeconds / duration : 0;
-  const color = pct > 0.5 ? "#FF6B35" : pct > 0.25 ? "#F59E0B" : "#D62828";
-  const urgent = pct <= 0.3 && remainingSeconds > 0;
+  const remainingSeconds = controlled
+    ? Math.round(remaining)
+    : internalRemaining
+  const pct = duration > 0 ? remainingSeconds / duration : 0
+  const color = pct > 0.5 ? "#FF6B35" : pct > 0.25 ? "#F59E0B" : "#D62828"
+  const urgent = pct <= 0.3 && remainingSeconds > 0
 
   if (variant === "linear") {
     return (
       <div className="w-full">
         <div className="flex items-center justify-between mb-1.5">
-          <span className="text-xs font-medium text-[#A0A0A0]">Temps restant</span>
-          <span className={`text-sm font-black tabular-nums ${urgent ? "text-[#D62828] animate-[countdownBlink_0.8s_ease-in-out_infinite]" : "text-[#FF6B35]"}`}>
+          <span className="text-xs font-medium text-[#A0A0A0]">
+            Temps restant
+          </span>
+          <span
+            className={`text-sm font-black tabular-nums ${
+              urgent
+                ? "text-[#D62828] animate-[countdownBlink_0.8s_ease-in-out_infinite]"
+                : "text-[#FF6B35]"
+            }`}
+          >
             {remainingSeconds}s
           </span>
         </div>
@@ -58,16 +84,16 @@ export default function QuizTimer({ duration, onExpire, variant = "circular", ru
           />
         </div>
       </div>
-    );
+    )
   }
 
   // Circular variant
-  const sizes = { sm: 72, md: 96, lg: 120 };
-  const px = sizes[size];
-  const cx = px / 2;
-  const radius = (px - 12) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const dash = pct * circumference;
+  const sizes = { sm: 72, md: 96, lg: 120 }
+  const px = sizes[size]
+  const cx = px / 2
+  const radius = (px - 12) / 2
+  const circumference = 2 * Math.PI * radius
+  const dash = pct * circumference
 
   return (
     <div
@@ -76,16 +102,29 @@ export default function QuizTimer({ duration, onExpire, variant = "circular", ru
     >
       {/* Background glow when urgent */}
       {urgent && (
-        <div className="absolute inset-0 rounded-full"
-          style={{ background: `radial-gradient(circle, ${color}15 0%, transparent 70%)` }} />
+        <div
+          className="absolute inset-0 rounded-full"
+          style={{
+            background: `radial-gradient(circle, ${color}15 0%, transparent 70%)`,
+          }}
+        />
       )}
 
       <svg width={px} height={px} className="absolute inset-0 -rotate-90">
         {/* Track */}
-        <circle cx={cx} cy={cx} r={radius} fill="none" stroke="#F0F0F0" strokeWidth={6} />
+        <circle
+          cx={cx}
+          cy={cx}
+          r={radius}
+          fill="none"
+          stroke="#F0F0F0"
+          strokeWidth={6}
+        />
         {/* Progress */}
         <circle
-          cx={cx} cy={cx} r={radius}
+          cx={cx}
+          cy={cx}
+          r={radius}
           fill="none"
           stroke={color}
           strokeWidth={6}
@@ -96,17 +135,26 @@ export default function QuizTimer({ duration, onExpire, variant = "circular", ru
       </svg>
 
       {/* Center number */}
-      <div className={`z-10 flex flex-col items-center ${urgent ? "animate-[timerPulse_0.6s_ease-in-out_infinite]" : ""}`}>
+      <div
+        className={`z-10 flex flex-col items-center ${
+          urgent ? "animate-[timerPulse_0.6s_ease-in-out_infinite]" : ""
+        }`}
+      >
         <span
           className="font-black tabular-nums leading-none"
-          style={{ color, fontSize: size === "lg" ? 36 : size === "md" ? 28 : 20 }}
+          style={{
+            color,
+            fontSize: size === "lg" ? 36 : size === "md" ? 28 : 20,
+          }}
         >
           {remainingSeconds}
         </span>
         {size !== "sm" && (
-          <span className="text-[10px] text-[#A0A0A0] font-medium mt-0.5">sec</span>
+          <span className="text-[10px] text-[#A0A0A0] font-medium mt-0.5">
+            sec
+          </span>
         )}
       </div>
     </div>
-  );
+  )
 }

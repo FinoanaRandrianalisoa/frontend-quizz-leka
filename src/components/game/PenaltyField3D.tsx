@@ -1,12 +1,12 @@
-import { useRef, useState, useEffect } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls, PerspectiveCamera } from "@react-three/drei";
-import * as THREE from "three";
+import { useRef, useState, useEffect } from "react"
+import { Canvas, useFrame } from "@react-three/fiber"
+import { OrbitControls, PerspectiveCamera } from "@react-three/drei"
+import * as THREE from "three"
 
 interface PenaltyField3DProps {
-  onDirectionSelect: (direction: "gauche" | "centre" | "droite") => void;
-  isLocked: boolean;
-  goalkeeperPosition?: "gauche" | "centre" | "droite";
+  onDirectionSelect: (direction: "gauche" | "centre" | "droite") => void
+  isLocked: boolean
+  goalkeeperPosition?: "gauche" | "centre" | "droite"
 }
 
 function Field() {
@@ -15,7 +15,7 @@ function Field() {
       <planeGeometry args={[20, 30]} />
       <meshStandardMaterial color="#2d5a27" />
     </mesh>
-  );
+  )
 }
 
 function Goal() {
@@ -49,22 +49,26 @@ function Goal() {
         <meshStandardMaterial color="#ffffff" transparent opacity={0.3} />
       </mesh>
     </group>
-  );
+  )
 }
 
-function Goalkeeper({ position }: { position: "gauche" | "centre" | "droite" }) {
-  const groupRef = useRef<THREE.Group>(null);
-  const targetX = position === "gauche" ? -2 : position === "droite" ? 2 : 0;
-  
+function Goalkeeper({
+  position,
+}: {
+  position: "gauche" | "centre" | "droite"
+}) {
+  const groupRef = useRef<THREE.Group>(null)
+  const targetX = position === "gauche" ? -2 : position === "droite" ? 2 : 0
+
   useFrame((state, delta) => {
     if (groupRef.current) {
       groupRef.current.position.x = THREE.MathUtils.lerp(
         groupRef.current.position.x,
         targetX,
-        delta * 5
-      );
+        delta * 5,
+      )
     }
-  });
+  })
 
   return (
     <group ref={groupRef} position={[0, 0, -10]}>
@@ -97,53 +101,59 @@ function Goalkeeper({ position }: { position: "gauche" | "centre" | "droite" }) 
         <meshStandardMaterial color="#1a1a2e" />
       </mesh>
     </group>
-  );
+  )
 }
 
-function Ball({ onShoot }: { onShoot: (direction: "gauche" | "centre" | "droite") => void }) {
-  const ballRef = useRef<THREE.Mesh>(null);
-  const [isShooting, setIsShooting] = useState(false);
-  const [shootDirection, setShootDirection] = useState<"gauche" | "centre" | "droite">("centre");
+function Ball({
+  onShoot,
+}: {
+  onShoot: (direction: "gauche" | "centre" | "droite") => void
+}) {
+  const ballRef = useRef<THREE.Mesh>(null)
+  const [isShooting, setIsShooting] = useState(false)
+  const [shootDirection, setShootDirection] =
+    useState<"gauche" | "centre" | "droite">("centre")
 
   useFrame((state, delta) => {
     if (ballRef.current && isShooting) {
-      const targetX = shootDirection === "gauche" ? -3 : shootDirection === "droite" ? 3 : 0;
-      const targetZ = -12;
-      
+      const targetX =
+        shootDirection === "gauche" ? -3 : shootDirection === "droite" ? 3 : 0
+      const targetZ = -12
+
       ballRef.current.position.x = THREE.MathUtils.lerp(
         ballRef.current.position.x,
         targetX,
-        delta * 3
-      );
+        delta * 3,
+      )
       ballRef.current.position.z = THREE.MathUtils.lerp(
         ballRef.current.position.z,
         targetZ,
-        delta * 3
-      );
+        delta * 3,
+      )
       ballRef.current.position.y = THREE.MathUtils.lerp(
         ballRef.current.position.y,
         2,
-        delta * 2
-      );
-      
+        delta * 2,
+      )
+
       // Rotation du ballon
-      ballRef.current.rotation.x += delta * 5;
-      ballRef.current.rotation.z += delta * 3;
+      ballRef.current.rotation.x += delta * 5
+      ballRef.current.rotation.z += delta * 3
     }
-  });
+  })
 
   const handleClick = () => {
     if (!isShooting) {
-      setIsShooting(true);
-      onShoot(shootDirection);
+      setIsShooting(true)
+      onShoot(shootDirection)
       setTimeout(() => {
-        setIsShooting(false);
+        setIsShooting(false)
         if (ballRef.current) {
-          ballRef.current.position.set(0, 0.5, 8);
+          ballRef.current.position.set(0, 0.5, 8)
         }
-      }, 1500);
+      }, 1500)
     }
-  };
+  }
 
   return (
     <mesh ref={ballRef} position={[0, 0.5, 8]} onClick={handleClick}>
@@ -155,11 +165,18 @@ function Ball({ onShoot }: { onShoot: (direction: "gauche" | "centre" | "droite"
         <meshStandardMaterial color="#000000" wireframe />
       </mesh>
     </mesh>
-  );
+  )
 }
 
-function Scene({ onDirectionSelect, goalkeeperPosition }: { onDirectionSelect: (direction: "gauche" | "centre" | "droite") => void; goalkeeperPosition?: "gauche" | "centre" | "droite" }) {
-  const [selectedDirection, setSelectedDirection] = useState<"gauche" | "centre" | "droite">("centre");
+function Scene({
+  onDirectionSelect,
+  goalkeeperPosition,
+}: {
+  onDirectionSelect: (direction: "gauche" | "centre" | "droite") => void
+  goalkeeperPosition?: "gauche" | "centre" | "droite"
+}) {
+  const [selectedDirection, setSelectedDirection] =
+    useState<"gauche" | "centre" | "droite">("centre")
 
   return (
     <>
@@ -169,38 +186,72 @@ function Scene({ onDirectionSelect, goalkeeperPosition }: { onDirectionSelect: (
       <Field />
       <Goal />
       <Goalkeeper position={goalkeeperPosition || "centre"} />
-      <Ball onShoot={(dir) => {
-        setSelectedDirection(dir);
-        onDirectionSelect(dir);
-      }} />
-      
+      <Ball
+        onShoot={(dir) => {
+          setSelectedDirection(dir)
+          onDirectionSelect(dir)
+        }}
+      />
+
       {/* Indicateurs de direction */}
       <group position={[0, 0.5, 6]}>
-        <mesh position={[-2, 0, 0]} onClick={() => setSelectedDirection("gauche")}>
+        <mesh
+          position={[-2, 0, 0]}
+          onClick={() => setSelectedDirection("gauche")}
+        >
           <sphereGeometry args={[0.3, 16, 16]} />
-          <meshStandardMaterial color={selectedDirection === "gauche" ? "#4CAF50" : "#ffffff"} emissive={selectedDirection === "gauche" ? "#4CAF50" : "#000000"} emissiveIntensity={0.3} />
+          <meshStandardMaterial
+            color={selectedDirection === "gauche" ? "#4CAF50" : "#ffffff"}
+            emissive={selectedDirection === "gauche" ? "#4CAF50" : "#000000"}
+            emissiveIntensity={0.3}
+          />
         </mesh>
-        <mesh position={[0, 0, 0]} onClick={() => setSelectedDirection("centre")}>
+        <mesh
+          position={[0, 0, 0]}
+          onClick={() => setSelectedDirection("centre")}
+        >
           <sphereGeometry args={[0.3, 16, 16]} />
-          <meshStandardMaterial color={selectedDirection === "centre" ? "#4CAF50" : "#ffffff"} emissive={selectedDirection === "centre" ? "#4CAF50" : "#000000"} emissiveIntensity={0.3} />
+          <meshStandardMaterial
+            color={selectedDirection === "centre" ? "#4CAF50" : "#ffffff"}
+            emissive={selectedDirection === "centre" ? "#4CAF50" : "#000000"}
+            emissiveIntensity={0.3}
+          />
         </mesh>
-        <mesh position={[2, 0, 0]} onClick={() => setSelectedDirection("droite")}>
+        <mesh
+          position={[2, 0, 0]}
+          onClick={() => setSelectedDirection("droite")}
+        >
           <sphereGeometry args={[0.3, 16, 16]} />
-          <meshStandardMaterial color={selectedDirection === "droite" ? "#4CAF50" : "#ffffff"} emissive={selectedDirection === "droite" ? "#4CAF50" : "#000000"} emissiveIntensity={0.3} />
+          <meshStandardMaterial
+            color={selectedDirection === "droite" ? "#4CAF50" : "#ffffff"}
+            emissive={selectedDirection === "droite" ? "#4CAF50" : "#000000"}
+            emissiveIntensity={0.3}
+          />
         </mesh>
       </group>
     </>
-  );
+  )
 }
 
-export default function PenaltyField3D({ onDirectionSelect, isLocked, goalkeeperPosition }: PenaltyField3DProps) {
+export default function PenaltyField3D({
+  onDirectionSelect,
+  isLocked,
+  goalkeeperPosition,
+}: PenaltyField3DProps) {
   return (
     <div className="w-full h-[300px] sm:h-[400px] md:h-[500px] rounded-3xl overflow-hidden border-2 border-white/10 bg-gradient-to-br from-[#1a1a2e] to-[#0f3460]">
       <Canvas>
         <PerspectiveCamera makeDefault position={[0, 5, 15]} />
-        <OrbitControls enableZoom={false} enablePan={false} maxPolarAngle={Math.PI / 2.5} />
-        <Scene onDirectionSelect={onDirectionSelect} goalkeeperPosition={goalkeeperPosition} />
+        <OrbitControls
+          enableZoom={false}
+          enablePan={false}
+          maxPolarAngle={Math.PI / 2.5}
+        />
+        <Scene
+          onDirectionSelect={onDirectionSelect}
+          goalkeeperPosition={goalkeeperPosition}
+        />
       </Canvas>
     </div>
-  );
+  )
 }

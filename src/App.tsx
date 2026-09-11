@@ -1,44 +1,52 @@
-import { useEffect, useRef, useState } from "react";
-import { X } from "lucide-react";
-import { ToastProvider, Skeleton, useToast, Dialog, DialogHeader, DialogTitle, DialogContent, DialogFooter, Button } from "./components/ui";
-import TopNav from "./components/navigation/TopNav";
-import AuthPage from "./pages/AuthPage";
-import HomePage from "./pages/HomePage";
+import { useEffect, useRef, useState } from "react"
+import { X } from "lucide-react"
+import {
+  ToastProvider,
+  Skeleton,
+  useToast,
+  Dialog,
+  DialogHeader,
+  DialogTitle,
+  DialogContent,
+  DialogFooter,
+  Button,
+} from "./components/ui"
+import TopNav from "./components/navigation/TopNav"
+import AuthPage from "./pages/AuthPage"
+import HomePage from "./pages/HomePage"
 // LobbyPage removed: creation flow now uses categories -> categoryThemes
-import PlayCategoriesPage from "./pages/PlayCategoriesPage";
-import CategoryThemesPage from "./pages/CategoryThemesPage";
-import GameRoomPage from "./pages/GameRoomPage";
-import RabbitRacePage from "./pages/RabbitRacePage";
-import SquidGamePage from "./pages/SquidGamePage";
-import RpsMatchPage from "./pages/RpsMatchPage";
-import PenaltyKickPage from "./pages/PenaltyKickPage";
-import PenaltyMatchPage from "./pages/PenaltyMatchPage";
-import QuizGlobalPage from "./pages/QuizGlobalPage";
-import MatchResultsPage from "./pages/MatchResultsPage";
-import LeaderboardPage from "./pages/LeaderboardPage";
-import ProfilePage from "./pages/ProfilePage";
-import WalletPage from "./pages/WalletPage";
-import NotificationsPage from "./pages/NotificationsPage";
-import MessagesPage from "./pages/MessagesPage";
-import SettingsPage from "./pages/SettingsPage";
-import SpectatorPage from "./pages/SpectatorPage";
-import AdminUsersPage from "./pages/AdminUsersPage";
-import { AuthProvider, useAuth } from "./lib/auth";
-import { api } from "./lib/api";
-import { quizGlobalApi, type QuizGlobalState } from "./lib/quizGlobalApi";
-import { WS_URL } from "./config/backend";
+import PlayCategoriesPage from "./pages/PlayCategoriesPage"
+import CategoryThemesPage from "./pages/CategoryThemesPage"
+import GameRoomPage from "./pages/GameRoomPage"
+import RabbitRacePage from "./pages/RabbitRacePage"
+import SquidGamePage from "./pages/SquidGamePage"
+import RpsMatchPage from "./pages/RpsMatchPage"
+import PenaltyKickPage from "./pages/PenaltyKickPage"
+import PenaltyMatchPage from "./pages/PenaltyMatchPage"
+import QuizGlobalPage from "./pages/QuizGlobalPage"
+import MatchResultsPage from "./pages/MatchResultsPage"
+import LeaderboardPage from "./pages/LeaderboardPage"
+import ProfilePage from "./pages/ProfilePage"
+import WalletPage from "./pages/WalletPage"
+import NotificationsPage from "./pages/NotificationsPage"
+import MessagesPage from "./pages/MessagesPage"
+import SettingsPage from "./pages/SettingsPage"
+import SpectatorPage from "./pages/SpectatorPage"
+import AdminUsersPage from "./pages/AdminUsersPage"
+import { AuthProvider, useAuth } from "./lib/auth"
+import { api } from "./lib/api"
+import { quizGlobalApi, type QuizGlobalState } from "./lib/quizGlobalApi"
+import { WS_URL } from "./config/backend"
 
-export type Page =
-  | "login" | "register"
-  | "home" | "game" | "results"
-  | "rabbitRace" | "squidGame" | "rpsMatch" | "penaltyKick" | "penaltyMatch" | "quizGlobal"
-  | "categories" | "categoryThemes"
-  | "leaderboard" | "profile"
-  | "wallet" | "notifications" | "messages" | "settings"
-  | "spectator" | "admin";
+export type Page = "login" | "register" | "home" | "game" | "results" | "rabbitRace" | "squidGame" | "rpsMatch" | "penaltyKick" | "penaltyMatch" | "quizGlobal" | "categories" | "categoryThemes" | "leaderboard" | "profile" | "wallet" | "notifications" | "messages" | "settings" | "spectator" | "admin"
 
-const AUTH_PAGES: Page[] = ["login", "register"];
-const FULLSCREEN_PAGES: Page[] = ["game", "spectator", "rpsMatch", "penaltyMatch"];
+const AUTH_PAGES: Page[] = ["login", "register"]
+const FULLSCREEN_PAGES: Page[] = [
+  "game",
+  "spectator",
+  "rpsMatch",
+  "penaltyMatch",
+]
 const PAGE_ROUTES: Record<Page, string> = {
   login: "Login",
   register: "Register",
@@ -61,16 +69,22 @@ const PAGE_ROUTES: Record<Page, string> = {
   settings: "Settings",
   spectator: "Spectator",
   admin: "AdminUsers",
-};
+}
 
 const pageFromPath = (path: string): Page | null => {
-  const normalized = path.replace(/^\/+|\/+$/g, "").toLowerCase();
-  if (!normalized) return "home";
-  const match = Object.entries(PAGE_ROUTES).find(([, route]) => route.toLowerCase() === normalized);
-  return (match?.[0] as Page) ?? null;
-};
+  const normalized = path.replace(/^\/+|\/+$/g, "").toLowerCase()
+  if (!normalized) return "home"
+  const match = Object.entries(PAGE_ROUTES).find(
+    ([, route]) => route.toLowerCase() === normalized,
+  )
+  return match?.[0] as Page ?? null
+}
 
-export type NavigateFn = (page: string, matchId?: number | null, param?: string | null) => void;
+export type NavigateFn = (
+  page: string,
+  matchId?: number | null,
+  param?: string | null,
+) => void
 
 function Footer() {
   return (
@@ -84,222 +98,258 @@ function Footer() {
         </div>
       </div>
     </footer>
-  );
+  )
 }
 
 function AppShell() {
-  const { user, loading } = useAuth();
-  const toast = useToast();
-  const [page, setPage] = useState<Page>("home");
-  const [matchId, setMatchId] = useState<number | null>(null);
-  const [pageParam, setPageParam] = useState<string | null>(null);
-  const [rabbitInvite, setRabbitInvite] = useState<{ matchId: number; titre: string; message: string } | null>(null);
-  const [rabbitInviteBusy, setRabbitInviteBusy] = useState(false);
-  const [quizInvite, setQuizInvite] = useState<QuizGlobalState | null>(null);
-  const [quizInviteBusy, setQuizInviteBusy] = useState(false);
-  const quizInviteRef = useRef<QuizGlobalState | null>(null);
-  const dismissedInvites = useRef<Set<number>>(new Set());
+  const { user, loading } = useAuth()
+  const toast = useToast()
+  const [page, setPage] = useState<Page>("home")
+  const [matchId, setMatchId] = useState<number | null>(null)
+  const [pageParam, setPageParam] = useState<string | null>(null)
+  const [rabbitInvite, setRabbitInvite] = useState<{
+    matchId: number
+    titre: string
+    message: string
+  } | null>(null)
+  const [rabbitInviteBusy, setRabbitInviteBusy] = useState(false)
+  const [quizInvite, setQuizInvite] = useState<QuizGlobalState | null>(null)
+  const [quizInviteBusy, setQuizInviteBusy] = useState(false)
+  const quizInviteRef = useRef<QuizGlobalState | null>(null)
+  const dismissedInvites = useRef<Set<number>>(new Set())
 
   useEffect(() => {
-    quizInviteRef.current = quizInvite;
-  }, [quizInvite]);
+    quizInviteRef.current = quizInvite
+  }, [quizInvite])
 
   useEffect(() => {
     const syncFromLocation = () => {
-      const nextPage = pageFromPath(window.location.pathname);
+      const nextPage = pageFromPath(window.location.pathname)
       if (nextPage) {
-        setPage(nextPage);
-        const urlMatch = new URLSearchParams(window.location.search).get("match");
-        if (urlMatch) setMatchId(Number(urlMatch));
+        setPage(nextPage)
+        const urlMatch = new URLSearchParams(window.location.search).get(
+          "match",
+        )
+        if (urlMatch) setMatchId(Number(urlMatch))
       }
-    };
+    }
 
-    syncFromLocation();
-    window.addEventListener("popstate", syncFromLocation);
-    return () => window.removeEventListener("popstate", syncFromLocation);
-  }, []);
+    syncFromLocation()
+    window.addEventListener("popstate", syncFromLocation)
+    return () => window.removeEventListener("popstate", syncFromLocation)
+  }, [])
 
   useEffect(() => {
     const handleRefresh = (event: Event) => {
       const detail = (event as CustomEvent<{
-        titre?: string;
-        message?: string;
-        type?: string;
-        reference_id?: number;
-        referenceId?: number;
-      }>).detail;
-      const titre = detail?.titre || "";
-      const message = detail?.message || "";
-      const text = titre || message || "Nouvelle notification";
-      toast.toast("info", text);
+        titre?: string
+        message?: string
+        type?: string
+        reference_id?: number
+        referenceId?: number
+      }>).detail
+      const titre = detail?.titre || ""
+      const message = detail?.message || ""
+      const text = titre || message || "Nouvelle notification"
+      toast.toast("info", text)
 
-      const matchId = Number(detail?.referenceId ?? detail?.reference_id ?? 0);
-      const isInvite = titre.trim().toLowerCase() === "invitation course lapin" || (detail?.type === "defi_recu" && /course lapin/i.test(`${titre} ${message}`));
+      const matchId = Number(detail?.referenceId ?? detail?.reference_id ?? 0)
+      const isInvite =
+        titre.trim().toLowerCase() === "invitation course lapin" ||
+        (detail?.type === "defi_recu" &&
+          /course lapin/i.test(`${titre} ${message}`))
       if (isInvite && matchId) {
-        setRabbitInvite({ matchId, titre: titre || "Invitation Course lapin", message: message || "Acceptez pour rejoindre la course." });
-        return;
+        setRabbitInvite({
+          matchId,
+          titre: titre || "Invitation Course lapin",
+          message: message || "Acceptez pour rejoindre la course.",
+        })
+        return
       }
       // Détection plus robuste pour Quiz Global
-      const isQuizInvite = /quizz global/i.test(titre) || (detail?.type === "defi_recu" && /quizz/i.test(`${titre} ${message}`));
+      const isQuizInvite =
+        /quizz global/i.test(titre) ||
+        (detail?.type === "defi_recu" && /quizz/i.test(`${titre} ${message}`))
       if (isQuizInvite && matchId) {
-        console.log("Quiz Global invitation detected:", { titre, message, matchId });
-        void enqueueQuizInvite(matchId);
+        console.log("Quiz Global invitation detected:", {
+          titre,
+          message,
+          matchId,
+        })
+        void enqueueQuizInvite(matchId)
       }
-    };
+    }
 
     const enqueueQuizInvite = async (gameId: number) => {
       try {
         if (dismissedInvites.current.has(gameId)) {
-          console.log("Quiz invite already dismissed:", gameId);
-          return;
+          console.log("Quiz invite already dismissed:", gameId)
+          return
         }
-        console.log("Fetching quiz invite details for game:", gameId);
-        const res = await quizGlobalApi.get(gameId);
-        console.log("Quiz invite fetched:", res);
-        setQuizInvite(res.partieQuizGlobal);
+        console.log("Fetching quiz invite details for game:", gameId)
+        const res = await quizGlobalApi.get(gameId)
+        console.log("Quiz invite fetched:", res)
+        setQuizInvite(res.partieQuizGlobal)
       } catch (err) {
-        console.error("Error fetching quiz invite:", err);
+        console.error("Error fetching quiz invite:", err)
         // ignore
       }
-    };
+    }
 
-    window.addEventListener("notifications:refresh", handleRefresh as EventListener);
-    return () => window.removeEventListener("notifications:refresh", handleRefresh as EventListener);
-  }, [toast]);
+    window.addEventListener(
+      "notifications:refresh",
+      handleRefresh as EventListener,
+    )
+    return () =>
+      window.removeEventListener(
+        "notifications:refresh",
+        handleRefresh as EventListener,
+      )
+  }, [toast])
 
   useEffect(() => {
-    if (!user) return;
-    let cancelled = false;
+    if (!user) return
+    let cancelled = false
     const check = async () => {
-      if (cancelled || quizInviteRef.current) return;
+      if (cancelled || quizInviteRef.current) return
       try {
-        console.log("Checking for quiz global invitations...");
-        const res = await quizGlobalApi.mesInvitations();
-        const invites = res.mesInvitationsQuizGlobal ?? [];
-        console.log("Quiz invitations found:", invites.length);
-        const next = invites.find((g) => !dismissedInvites.current.has(g.gameId));
+        console.log("Checking for quiz global invitations...")
+        const res = await quizGlobalApi.mesInvitations()
+        const invites = res.mesInvitationsQuizGlobal ?? []
+        console.log("Quiz invitations found:", invites.length)
+        const next = invites.find(
+          (g) => !dismissedInvites.current.has(g.gameId),
+        )
         if (next) {
-          console.log("Setting quiz invite:", next);
-          setQuizInvite(next);
+          console.log("Setting quiz invite:", next)
+          setQuizInvite(next)
         }
       } catch (err) {
-        console.error("Error checking quiz invitations:", err);
+        console.error("Error checking quiz invitations:", err)
         // ignore
       }
-    };
-    const id = setInterval(() => void check(), 8000);
+    }
+    const id = setInterval(() => void check(), 8000)
     return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, [user?.id]);
+      cancelled = true
+      clearInterval(id)
+    }
+  }, [user?.id])
 
   // WebSocket pour écouter les acceptations d'invitation Quiz Global (hôte)
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id) return
 
-    const token = localStorage.getItem("access_token") || "";
-    const wsUrl = `${WS_URL}/ws/notifications/?token=${encodeURIComponent(token)}`;
-    console.log("Connecting to notifications WebSocket:", wsUrl);
-    const ws = new WebSocket(wsUrl);
+    const token = localStorage.getItem("access_token") || ""
+    const wsUrl = `${WS_URL}/ws/notifications/?token=${encodeURIComponent(token)}`
+    console.log("Connecting to notifications WebSocket:", wsUrl)
+    const ws = new WebSocket(wsUrl)
 
     ws.onopen = () => {
-      console.log("WebSocket notifications connecté pour user:", user.id);
-    };
+      console.log("WebSocket notifications connecté pour user:", user.id)
+    }
 
     ws.onerror = (error) => {
-      console.error("WebSocket notifications error:", error);
-    };
+      console.error("WebSocket notifications error:", error)
+    }
 
     ws.onmessage = (ev) => {
       try {
-        const payload = JSON.parse(ev.data);
-        console.log("WebSocket notification received:", payload);
-        
+        const payload = JSON.parse(ev.data)
+        console.log("WebSocket notification received:", payload)
+
         if (payload?.type === "quiz_global.invite_accepted") {
-          const hostId = String(payload.host_id);
-          console.log("Quiz global invite accepted, host_id:", hostId, "my_id:", user.id);
+          const hostId = String(payload.host_id)
+          console.log(
+            "Quiz global invite accepted, host_id:",
+            hostId,
+            "my_id:",
+            user.id,
+          )
           if (hostId === String(user.id)) {
             // L'hôte reçoit la notification que son invitation a été acceptée
-            console.log("Redirecting host to quizGlobal:", payload.game_id);
-            navigate("quizGlobal", payload.game_id);
+            console.log("Redirecting host to quizGlobal:", payload.game_id)
+            navigate("quizGlobal", payload.game_id)
           }
         }
       } catch (err) {
-        console.error("Error parsing WebSocket message:", err);
+        console.error("Error parsing WebSocket message:", err)
         // ignore malformed payload
       }
-    };
+    }
 
     return () => {
       try {
-        ws.close();
+        ws.close()
       } catch {
         // ignore close errors
       }
-    };
-  }, [user?.id]);
+    }
+  }, [user?.id])
 
   const confirmQuizInvite = async () => {
-    if (!quizInvite) return;
-    const gameId = quizInvite.gameId;
-    setQuizInviteBusy(true);
+    if (!quizInvite) return
+    const gameId = quizInvite.gameId
+    setQuizInviteBusy(true)
     try {
-      dismissedInvites.current.add(gameId);
-      setQuizInvite(null);
-      const res = await quizGlobalApi.rejoindre(gameId);
-      navigate("quizGlobal", res.rejoindrePartieQuizGlobal.gameId || gameId);
+      dismissedInvites.current.add(gameId)
+      setQuizInvite(null)
+      const res = await quizGlobalApi.rejoindre(gameId)
+      navigate("quizGlobal", res.rejoindrePartieQuizGlobal.gameId || gameId)
     } catch {
-      dismissedInvites.current.add(gameId);
-      navigate("quizGlobal", gameId);
+      dismissedInvites.current.add(gameId)
+      navigate("quizGlobal", gameId)
     } finally {
-      setQuizInviteBusy(false);
+      setQuizInviteBusy(false)
     }
-  };
+  }
 
   const refuseQuizInvite = async () => {
-    if (!quizInvite) return;
-    const gameId = quizInvite.gameId;
-    setQuizInviteBusy(true);
+    if (!quizInvite) return
+    const gameId = quizInvite.gameId
+    setQuizInviteBusy(true)
     try {
-      await quizGlobalApi.refuserInvitation(gameId);
+      await quizGlobalApi.refuserInvitation(gameId)
     } catch {
       // ignore
     }
-    dismissedInvites.current.add(gameId);
-    setQuizInvite(null);
-    setQuizInviteBusy(false);
-  };
+    dismissedInvites.current.add(gameId)
+    setQuizInvite(null)
+    setQuizInviteBusy(false)
+  }
 
   const closeQuizInvite = () => {
-    if (!quizInvite) return;
-    dismissedInvites.current.add(quizInvite.gameId);
-    setQuizInvite(null);
-  };
+    if (!quizInvite) return
+    dismissedInvites.current.add(quizInvite.gameId)
+    setQuizInvite(null)
+  }
 
   const navigate: NavigateFn = (p, nextMatchId, param) => {
-    const target = p as Page;
+    const target = p as Page
     if (!user && !AUTH_PAGES.includes(target)) {
-      setPage("login");
-      const loginPath = `/${PAGE_ROUTES.login}`;
-      window.history.pushState({}, "", loginPath);
-      return;
+      setPage("login")
+      const loginPath = `/${PAGE_ROUTES.login}`
+      window.history.pushState({}, "", loginPath)
+      return
     }
-    const isHub = target === "categories" || target === "quizGlobal";
+    const isHub = target === "categories" || target === "quizGlobal"
     if (target === "rabbitRace" && (!nextMatchId || Number(nextMatchId) <= 0)) {
-      sessionStorage.removeItem("rabbit_match_id");
-      setMatchId(null);
+      sessionStorage.removeItem("rabbit_match_id")
+      setMatchId(null)
     } else if (isHub && !nextMatchId) {
-      setMatchId(null);
+      setMatchId(null)
     } else if (nextMatchId !== undefined) {
-      setMatchId(nextMatchId);
+      setMatchId(nextMatchId)
     }
-    setPageParam(param ?? null);
-    setPage(target);
-    const route = PAGE_ROUTES[target] ?? "Home";
-    const query = nextMatchId !== undefined && nextMatchId !== null ? `?match=${nextMatchId}` : "";
-    window.history.pushState({}, "", `/${route}${query}`);
-  };
+    setPageParam(param ?? null)
+    setPage(target)
+    const route = PAGE_ROUTES[target] ?? "Home"
+    const query =
+      nextMatchId !== undefined && nextMatchId !== null
+        ? `?match=${nextMatchId}`
+        : ""
+    window.history.pushState({}, "", `/${route}${query}`)
+  }
 
   if (loading) {
     return (
@@ -307,13 +357,13 @@ function AppShell() {
         <Skeleton className="w-16 h-16 rounded-2xl" />
         <p className="text-sm text-[#A0A0A0]">Chargement de Quizz Leka…</p>
       </div>
-    );
+    )
   }
 
-  const isAuth = !user || AUTH_PAGES.includes(page);
-  const current = !user ? (page === "register" ? "register" : "login") : page;
-  const effectivePage = current;
-  const isFullscreen = FULLSCREEN_PAGES.includes(effectivePage);
+  const isAuth = !user || AUTH_PAGES.includes(page)
+  const current = !user ? (page === "register" ? "register" : "login") : page
+  const effectivePage = current
+  const isFullscreen = FULLSCREEN_PAGES.includes(effectivePage)
 
   return (
     <div className="h-full flex flex-col bg-background-[#F9F9F9]">
@@ -324,44 +374,71 @@ function AppShell() {
         />
       )}
 
-      {!isAuth && isFullscreen && (
-        effectivePage === "game"
-          ? <GameRoomPage onNavigate={navigate} matchId={matchId} />
-          : effectivePage === "rpsMatch"
-            ? <RpsMatchPage onNavigate={navigate} />
-            : effectivePage === "penaltyMatch"
-              ? <PenaltyMatchPage onNavigate={navigate} />
-              : <SpectatorPage onNavigate={navigate} matchId={matchId} />
-      )}
+      {!isAuth &&
+        isFullscreen &&
+        (effectivePage === "game" ? (
+          <GameRoomPage onNavigate={navigate} matchId={matchId} />
+        ) : effectivePage === "rpsMatch" ? (
+          <RpsMatchPage onNavigate={navigate} />
+        ) : effectivePage === "penaltyMatch" ? (
+          <PenaltyMatchPage onNavigate={navigate} />
+        ) : (
+          <SpectatorPage onNavigate={navigate} matchId={matchId} />
+        ))}
 
       {!isAuth && !isFullscreen && (
         <>
           <TopNav currentPage={effectivePage} onNavigate={navigate} />
           <main className="flex-1 overflow-auto">
-            {effectivePage === "home"          && <HomePage onNavigate={navigate} />}
-            {effectivePage === "rabbitRace"    && <RabbitRacePage onNavigate={navigate} matchId={matchId} />}
-            {effectivePage === "squidGame"     && <SquidGamePage onNavigate={navigate} />}
-            {effectivePage === "penaltyKick"    && <PenaltyKickPage onNavigate={navigate} />}
-            {effectivePage === "quizGlobal"    && <QuizGlobalPage onNavigate={navigate} matchId={matchId} />}
-            {effectivePage === "categories"    && <PlayCategoriesPage onNavigate={navigate} />}
-            {effectivePage === "categoryThemes" && <CategoryThemesPage onNavigate={navigate} category={pageParam} />}
-            {effectivePage === "results"       && <MatchResultsPage onNavigate={navigate} matchId={matchId} />}
-            {effectivePage === "leaderboard"   && <LeaderboardPage />}
-            {effectivePage === "profile"       && <ProfilePage onNavigate={navigate} />}
-            {effectivePage === "wallet"        && <WalletPage />}
-            {effectivePage === "notifications" && <NotificationsPage onNavigate={navigate} />}
-            {effectivePage === "messages"      && <MessagesPage />}
-            {effectivePage === "settings"      && <SettingsPage onNavigate={navigate} />}
-            {effectivePage === "admin"         && <AdminUsersPage />}
+            {effectivePage === "home" && <HomePage onNavigate={navigate} />}
+            {effectivePage === "rabbitRace" && (
+              <RabbitRacePage onNavigate={navigate} matchId={matchId} />
+            )}
+            {effectivePage === "squidGame" && (
+              <SquidGamePage onNavigate={navigate} />
+            )}
+            {effectivePage === "penaltyKick" && (
+              <PenaltyKickPage onNavigate={navigate} />
+            )}
+            {effectivePage === "quizGlobal" && (
+              <QuizGlobalPage onNavigate={navigate} matchId={matchId} />
+            )}
+            {effectivePage === "categories" && (
+              <PlayCategoriesPage onNavigate={navigate} />
+            )}
+            {effectivePage === "categoryThemes" && (
+              <CategoryThemesPage onNavigate={navigate} category={pageParam} />
+            )}
+            {effectivePage === "results" && (
+              <MatchResultsPage onNavigate={navigate} matchId={matchId} />
+            )}
+            {effectivePage === "leaderboard" && <LeaderboardPage />}
+            {effectivePage === "profile" && (
+              <ProfilePage onNavigate={navigate} />
+            )}
+            {effectivePage === "wallet" && <WalletPage />}
+            {effectivePage === "notifications" && (
+              <NotificationsPage onNavigate={navigate} />
+            )}
+            {effectivePage === "messages" && <MessagesPage />}
+            {effectivePage === "settings" && (
+              <SettingsPage onNavigate={navigate} />
+            )}
+            {effectivePage === "admin" && <AdminUsersPage />}
           </main>
           <Footer />
         </>
       )}
 
       {!isAuth && (
-        <Dialog open={Boolean(rabbitInvite)} onClose={() => setRabbitInvite(null)}>
+        <Dialog
+          open={Boolean(rabbitInvite)}
+          onClose={() => setRabbitInvite(null)}
+        >
           <DialogHeader>
-            <DialogTitle>{rabbitInvite?.titre ?? "Invitation Course lapin"}</DialogTitle>
+            <DialogTitle>
+              {rabbitInvite?.titre ?? "Invitation Course lapin"}
+            </DialogTitle>
           </DialogHeader>
           <DialogContent>
             <p className="text-sm text-[#64748b]">{rabbitInvite?.message}</p>
@@ -371,15 +448,15 @@ function AppShell() {
               variant="outline"
               disabled={rabbitInviteBusy}
               onClick={async () => {
-                if (!rabbitInvite) return;
-                setRabbitInviteBusy(true);
+                if (!rabbitInvite) return
+                setRabbitInviteBusy(true)
                 try {
-                  await api.refuserInvitationCourseLapin(rabbitInvite.matchId);
+                  await api.refuserInvitationCourseLapin(rabbitInvite.matchId)
                 } catch {
                   // ignore
                 } finally {
-                  setRabbitInviteBusy(false);
-                  setRabbitInvite(null);
+                  setRabbitInviteBusy(false)
+                  setRabbitInvite(null)
                 }
               }}
             >
@@ -388,20 +465,28 @@ function AppShell() {
             <Button
               disabled={rabbitInviteBusy}
               onClick={async () => {
-                if (!rabbitInvite) return;
-                setRabbitInviteBusy(true);
+                if (!rabbitInvite) return
+                setRabbitInviteBusy(true)
                 try {
-                  const result = await api.accepterInvitationCourseLapin(rabbitInvite.matchId);
-                  const id = Number(result.accepterInvitationCourseLapin?.id ?? rabbitInvite.matchId);
-                  sessionStorage.setItem("rabbit_match_id", String(id));
-                  setRabbitInvite(null);
-                  navigate("rabbitRace", id);
+                  const result = await api.accepterInvitationCourseLapin(
+                    rabbitInvite.matchId,
+                  )
+                  const id = Number(
+                    result.accepterInvitationCourseLapin?.id ??
+                      rabbitInvite.matchId,
+                  )
+                  sessionStorage.setItem("rabbit_match_id", String(id))
+                  setRabbitInvite(null)
+                  navigate("rabbitRace", id)
                 } catch {
-                  sessionStorage.setItem("rabbit_match_id", String(rabbitInvite.matchId));
-                  setRabbitInvite(null);
-                  navigate("rabbitRace", rabbitInvite.matchId);
+                  sessionStorage.setItem(
+                    "rabbit_match_id",
+                    String(rabbitInvite.matchId),
+                  )
+                  setRabbitInvite(null)
+                  navigate("rabbitRace", rabbitInvite.matchId)
                 } finally {
-                  setRabbitInviteBusy(false);
+                  setRabbitInviteBusy(false)
                 }
               }}
             >
@@ -425,28 +510,40 @@ function AppShell() {
           </DialogHeader>
           <DialogContent>
             <p className="text-sm text-[#64748b]">
-              {quizInvite?.playerA?.pseudo} vous invite à un duel Quizz Global de{" "}
-              {quizInvite?.targetQuestions} questions
-              {Number(quizInvite?.mise) > 0 ? ` avec une mise de ${Number(quizInvite?.mise).toLocaleString("fr-MG")} Ar` : "."} Confirmez pour rejoindre la partie.
+              {quizInvite?.playerA?.pseudo} vous invite à un duel Quizz Global
+              de {quizInvite?.targetQuestions} questions
+              {Number(quizInvite?.mise) > 0
+                ? ` avec une mise de ${Number(quizInvite?.mise).toLocaleString("fr-MG")} Ar`
+                : "."}{" "}
+              Confirmez pour rejoindre la partie.
             </p>
             {Number(quizInvite?.mise) > 0 && (
               <div className="rounded-xl bg-[#f1faf5] border border-[#bbf7d0] p-3 text-sm font-semibold text-[#166534]">
-                💰 Mise du duel : {Number(quizInvite?.mise).toLocaleString("fr-MG")} Ar — le gagnant remporte le pot.
+                💰 Mise du duel :{" "}
+                {Number(quizInvite?.mise).toLocaleString("fr-MG")} Ar — le
+                gagnant remporte le pot.
               </div>
             )}
           </DialogContent>
           <DialogFooter>
-            <Button variant="outline" disabled={quizInviteBusy} onClick={() => void refuseQuizInvite()}>
+            <Button
+              variant="outline"
+              disabled={quizInviteBusy}
+              onClick={() => void refuseQuizInvite()}
+            >
               Refuser
             </Button>
-            <Button disabled={quizInviteBusy} onClick={() => void confirmQuizInvite()}>
+            <Button
+              disabled={quizInviteBusy}
+              onClick={() => void confirmQuizInvite()}
+            >
               Confirmer
             </Button>
           </DialogFooter>
         </Dialog>
       )}
     </div>
-  );
+  )
 }
 
 export default function App() {
@@ -456,5 +553,5 @@ export default function App() {
         <AppShell />
       </ToastProvider>
     </AuthProvider>
-  );
+  )
 }
