@@ -45,7 +45,7 @@ const isQuizGlobalInvitationNotification = (item: Pick<NotificationItem, "type" 
   if (!item) return false;
   const titre = (item.titre ?? "").trim().toLowerCase();
   const haystack = `${item.titre ?? ""} ${item.message ?? ""}`.toLowerCase();
-  return titre === "invitation quizz global" || (item.type === "defi_recu" && haystack.includes("quizz global"));
+  return titre === "invitation quizz global" || titre === "invitation quiz global" || (item.type === "defi_recu" && haystack.includes("quizz global"));
 };
 
 export default function NotificationsPage({ onNavigate }: { onNavigate?: (p: string, id?: number | null) => void }) {
