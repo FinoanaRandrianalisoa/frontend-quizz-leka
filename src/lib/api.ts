@@ -15,6 +15,7 @@ export type Utilisateur = {
   enLigne?: boolean;
   dateJoined?: string;
   codeParrain?: string;
+  isActive?: boolean;
 };
 
 export type Profil = {
@@ -178,7 +179,7 @@ export type Conversation = {
   nonLus: number;
 };
 
-const USER_FIELDS = `id pseudo email role firstName lastName villeOrigine telephone dateNaissance photoProfil photoCouverture enLigne dateJoined codeParrain`;
+const USER_FIELDS = `id pseudo email role firstName lastName villeOrigine telephone dateNaissance photoProfil photoCouverture enLigne dateJoined codeParrain isActive`;
 const PORTEFEUILLE_FIELDS = `soldeTotal soldeRecharge soldeBloque soldeDisponible soldeBloqueTotal soldeGains soldeGainsTotal pinDefini portefeuilleDeverrouille modeDemo rechargeDemoDisponible`;
 const MATCH_DETAIL = `
   id typeJeu statut scoreHote scoreInvite tourActuel scoreCible termineLe creeLe commenceLe inviteAccepte premierTiersAtteint mise miseProposeeInvite miseEffective
@@ -636,6 +637,24 @@ export const api = {
     return gql<{ changerRole: Utilisateur }>(
       `mutation($id: ID!, $role: String!) { changerRole(utilisateurId: $id, role: $role) { ${USER_FIELDS} } }`,
       { id: utilisateurId, role },
+    );
+  },
+  desactiverUtilisateur(utilisateurId: string) {
+    return gql<{ desactiverUtilisateur: Utilisateur }>(
+      `mutation($id: ID!) { desactiverUtilisateur(utilisateurId: $id) { ${USER_FIELDS} } }`,
+      { id: utilisateurId },
+    );
+  },
+  activerUtilisateur(utilisateurId: string) {
+    return gql<{ activerUtilisateur: Utilisateur }>(
+      `mutation($id: ID!) { activerUtilisateur(utilisateurId: $id) { ${USER_FIELDS} } }`,
+      { id: utilisateurId },
+    );
+  },
+  supprimerUtilisateur(utilisateurId: string) {
+    return gql<{ supprimerUtilisateur: boolean }>(
+      `mutation($id: ID!) { supprimerUtilisateur(utilisateurId: $id) }`,
+      { id: utilisateurId },
     );
   },
   placerPari(matchId: number, joueurId: number, montant: number, idempotencyKey = "") {

@@ -15,12 +15,17 @@ import {
   Pencil,
   Trash2,
   Check,
+  Lock,
+  Unlock,
+  DollarSign,
+  History,
 } from "lucide-react";
-import { api, type Question, type Utilisateur } from "../lib/api";
+import { api, type Question, type Utilisateur, type LedgerEntry, type FinanceAdmin } from "../lib/api";
 import { useAsync, errMsg } from "../lib/hooks";
 import { useAuth } from "../lib/auth";
 import { initial } from "../lib/format";
-import { Button, Card, CardContent, Badge, Input } from "../components/ui";
+import { formatPoints, relativeTime } from "../lib/format";
+import { Button, Card, CardContent, Badge, Input, Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui";
 import UserName from "../components/UserName";
 
 function initials(value?: string | null) {
@@ -55,6 +60,8 @@ export default function AdminUsersPage() {
   const stats = useAsync(() => api.statsPlateforme().then((d) => d.statsPlateforme), []);
   const themes = useAsync(() => api.themes().then((d) => d.themes), []);
   const users = useAsync(() => api.utilisateurs(search || undefined).then((d) => d.utilisateurs), [search]);
+  const financeAdmin = useAsync(() => api.financeAdmin().then((d) => d.financeAdmin), []);
+  const transactions = useAsync(() => api.historiqueTransactions().then((d) => d.historiqueTransactions), []);
 
   const filteredUsers = useMemo(() => users.data ?? [], [users.data]);
   const orderedThemes = themes.data ?? [];
@@ -83,10 +90,51 @@ export default function AdminUsersPage() {
   }, [selectedThemeId]);
 
   const refreshAll = async () => {
-    await Promise.all([stats.reload(), users.reload(), themes.reload()]);
+    await Promise.all([stats.reload(), users.reload(), themes.reload(), financeAdmin.reload(), transactions.reload()]);
     if (selectedThemeId) {
       const response = await api.questions(selectedThemeId, 50);
       setQuestions(response.questions);
+    }
+  };
+
+  const handleDeactivateUser = async (target: Utilisateur) => {
+    if (!isAdmin || target.id === user?.id) return;
+    if (!window.confirm(`Désactiver le compte de ${target.pseudo} ?`)) return;
+    setUpdatingId(target.id);
+    try {
+      await api.desactiverUtilisateur(target.id);
+      await refreshAll();
+    } catch (error) {
+      alert(errMsg(error));
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const handleActivateUser = async (target: Utilisateur) => {
+    if (!isAdmin) return;
+    setUpdatingId(target.id);
+    try {
+      await api.activerUtilisateur(target.id);
+      await refreshAll();
+    } catch (error) {
+      alert(errMsg(error));
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const handleDeleteUser = async (target: Utilisateur) => {
+    if (!isAdmin || target.id === user?.id) return;
+    if (!window.confirm(`Supprimer définitivement le compte de ${target.pseudo} ? Cette action est irréversible.`)) return;
+    setUpdatingId(target.id);
+    try {
+      await api.supprimerUtilisateur(target.id);
+      await refreshAll();
+    } catch (error) {
+      alert(errMsg(error));
+    } finally {
+      setUpdatingId(null);
     }
   };
 
@@ -206,6 +254,9 @@ export default function AdminUsersPage() {
     { label: "Parties live", value: stats.data?.partiesEnCours ?? 0, icon: TrendingUp, tint: "bg-[#fef9c3] text-[#a16207]" },
   ];
 
+  const finance = financeAdmin.data;
+  const totalBudget = Number(finance?.totalCommissions ?? 0);
+
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-6 py-6 pb-20 md:pb-8">
       <div className="mb-6 overflow-hidden rounded-2xl bg-gradient-to-r from-[#16a34a] to-[#22c55e] p-4 text-white shadow-sm">
@@ -237,6 +288,18 @@ export default function AdminUsersPage() {
             </CardContent>
           </Card>
         ))}
+        <Card className="border-[#E8F5EB] bg-white shadow-sm">
+          <CardContent className="p-4 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[#64748b] text-xs uppercase tracking-wide">Budget total</p>
+              <p className="text-2xl font-black text-[#1f2a1f] mt-2">{formatPoints(totalBudget)}</p>
+              <p className="text-xs text-[#64748b]">Commissions</p>
+            </div>
+            <div className="w-11 h-11 rounded-xl flex items-center justify-center bg-[#fef9c3] text-[#a16207]">
+              <DollarSign size={20} />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-[1.4fr_0.9fr] gap-6">
@@ -284,17 +347,18 @@ export default function AdminUsersPage() {
                   {!users.loading && filteredUsers.map((item) => {
                     const isCurrentUser = item.id === user?.id;
                     const isAdminUser = item.role === "ADMIN";
+                    const isInactive = item.isActive === false;
 
                     return (
                       <tr key={item.id} className="border-t border-[#edf6ef] hover:bg-[#f9fdf9]">
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-full bg-[#dcfce7] text-[#166534] flex items-center justify-center font-bold text-sm">
+                            <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm ${isInactive ? "bg-[#f3f4f6] text-[#9ca3af]" : "bg-[#dcfce7] text-[#166534]"}`}>
                               {initials(item.pseudo)}
                             </div>
                             <div>
                               <p className="font-semibold text-[#1f2a1f]"><UserName user={item} /></p>
-                              <p className="text-xs text-[#64748b]">{item.enLigne ? "En ligne" : "Hors ligne"}</p>
+                              <p className="text-xs text-[#64748b]">{item.enLigne ? "En ligne" : "Hors ligne"}{isInactive && " • Désactivé"}</p>
                             </div>
                           </div>
                         </td>
@@ -313,6 +377,33 @@ export default function AdminUsersPage() {
                               onClick={() => handleRoleChange(item, isAdminUser ? "JOUEUR" : "ADMIN")}
                             >
                               {updatingId === item.id ? "…" : isAdminUser ? "Retirer admin" : "Promouvoir"}
+                            </Button>
+                            {isInactive ? (
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                disabled={updatingId === item.id}
+                                onClick={() => handleActivateUser(item)}
+                              >
+                                {updatingId === item.id ? "…" : <Unlock size={14} />}
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                disabled={isCurrentUser || updatingId === item.id}
+                                onClick={() => handleDeactivateUser(item)}
+                              >
+                                {updatingId === item.id ? "…" : <Lock size={14} />}
+                              </Button>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              disabled={isCurrentUser || updatingId === item.id}
+                              onClick={() => handleDeleteUser(item)}
+                            >
+                              {updatingId === item.id ? "…" : <Trash2 size={14} />}
                             </Button>
                           </div>
                         </td>
@@ -368,6 +459,38 @@ export default function AdminUsersPage() {
                   <span>App live</span>
                   <span className="font-bold text-[#16a34a]">OK</span>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-[#E8F5EB] bg-white shadow-sm">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <History className="text-[#16a34a]" size={18} />
+                <h2 className="font-bold text-[#1f2a1f]">Historique transactions</h2>
+              </div>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {transactions.loading ? (
+                  <div className="text-sm text-[#A0A0A0]">Chargement...</div>
+                ) : transactions.data && transactions.data.length > 0 ? (
+                  transactions.data.slice(0, 10).map((t) => {
+                    const amount = Number(t.montant || 0);
+                    const credit = amount >= 0;
+                    return (
+                      <div key={t.id} className="flex items-center justify-between text-sm border-b border-[#edf6ef] pb-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-[#1f2a1f] truncate">{t.reference || t.type}</p>
+                          <p className="text-xs text-[#64748b]">{relativeTime(t.creeLe)}</p>
+                        </div>
+                        <span className={`font-bold tabular-nums ${credit ? "text-[#06A77D]" : "text-[#D62828]"}`}>
+                          {credit ? "+" : ""}{formatPoints(amount)}
+                        </span>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="text-sm text-[#A0A0A0]">Aucune transaction.</div>
+                )}
               </div>
             </CardContent>
           </Card>
