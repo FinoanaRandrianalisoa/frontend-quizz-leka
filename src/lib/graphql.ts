@@ -20,12 +20,29 @@ const REFRESH_MUTATION = `
 
 let refreshInFlight: Promise<string | null> | null = null;
 
+const FETCH_RETRIES = 3;
+
+async function fetchWithRetry(url: string, init: RequestInit): Promise<Response> {
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= FETCH_RETRIES; attempt++) {
+    try {
+      return await fetch(url, init);
+    } catch (err) {
+      lastErr = err;
+      if (attempt < FETCH_RETRIES) {
+        await new Promise((resolve) => setTimeout(resolve, 400 * attempt));
+      }
+    }
+  }
+  throw lastErr;
+}
+
 async function rawRefresh(): Promise<string | null> {
   const refreshToken = typeof localStorage !== "undefined" ? localStorage.getItem("refresh_token") : null;
   if (!refreshToken) return null;
   let res: Response;
   try {
-    res = await fetch(GRAPHQL_URL, {
+    res = await fetchWithRetry(GRAPHQL_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query: REFRESH_MUTATION, variables: { refreshToken } }),
@@ -64,7 +81,7 @@ export async function gql<T>(
   const access = token ?? (typeof localStorage !== "undefined" ? localStorage.getItem("access_token") : null);
   if (access) headers.Authorization = `Bearer ${access}`;
 
-  const res = await fetch(GRAPHQL_URL, {
+  const res = await fetchWithRetry(GRAPHQL_URL, {
     method: "POST",
     headers,
     body: JSON.stringify({ query, variables }),
