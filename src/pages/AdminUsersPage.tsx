@@ -119,6 +119,8 @@ export default function AdminUsersPage() {
 
   const [importResult, setImportResult] = useState<string | null>(null)
 
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
+
   const stats = useAsync(
     () => api.statsPlateforme().then((d) => d.statsPlateforme),
     [],
@@ -1070,24 +1072,24 @@ export default function AdminUsersPage() {
                   Questions du thème
                 </h3>
                 <div className="flex gap-2">
-                  <label className="cursor-pointer">
-                    <input
-                      type="file"
-                      accept=".xlsx,.xls"
-                      onChange={handleImportExcel}
-                      disabled={importingFile || !selectedThemeId}
-                      className="hidden"
-                    />
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      disabled={importingFile || !selectedThemeId}
-                      className="gap-2"
-                    >
-                      <FileSpreadsheet size={14} />
-                      {importingFile ? "Import..." : "Importer Excel"}
-                    </Button>
-                  </label>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={handleImportExcel}
+                    disabled={importingFile || !selectedThemeId}
+                    className="hidden"
+                  />
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={importingFile || !selectedThemeId}
+                    onClick={() => fileInputRef.current?.click()}
+                    className="gap-2"
+                  >
+                    <FileSpreadsheet size={14} />
+                    {importingFile ? "Import..." : "Importer Excel"}
+                  </Button>
                   <Button
                     size="sm"
                     variant="success"
