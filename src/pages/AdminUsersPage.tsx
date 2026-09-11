@@ -397,8 +397,12 @@ export default function AdminUsersPage() {
   }
 
   const handleImportExcel = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log("handleImportExcel called")
     const file = event.target.files?.[0]
-    if (!file || !selectedThemeId) return
+    if (!file || !selectedThemeId) {
+      console.log("No file selected or no theme selected", { file, selectedThemeId })
+      return
+    }
 
     setImportingFile(true)
     setImportResult(null)
