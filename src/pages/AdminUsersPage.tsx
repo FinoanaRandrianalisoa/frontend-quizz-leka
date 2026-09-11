@@ -23,6 +23,8 @@ import {
   History,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   Eye,
   UserPlus,
   UserMinus,
@@ -121,6 +123,10 @@ export default function AdminUsersPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const [questionPage, setQuestionPage] = useState(1)
+
+  const [questionsPerPage] = useState(20)
+
   const stats = useAsync(
     () => api.statsPlateforme().then((d) => d.statsPlateforme),
     [],
@@ -156,10 +162,13 @@ export default function AdminUsersPage() {
     return showAllTransactions ? data : data.slice(0, 10)
   }, [transactions.data, showAllTransactions])
 
-  const displayedQuestions = useMemo(
-    () => (showAllQuestions ? questions : questions.slice(0, 10)),
-    [questions, showAllQuestions],
-  )
+  const displayedQuestions = useMemo(() => {
+    const startIndex = (questionPage - 1) * questionsPerPage
+    const endIndex = startIndex + questionsPerPage
+    return questions.slice(startIndex, endIndex)
+  }, [questions, questionPage, questionsPerPage])
+
+  const totalPages = Math.ceil(questions.length / questionsPerPage)
 
   const orderedThemes = themes.data ?? []
 
@@ -416,6 +425,10 @@ export default function AdminUsersPage() {
         try {
           const result = await api.importerQuestionsExcel(selectedThemeId, base64)
           setImportResult(result.importerQuestionsExcel)
+          // Recharger explicitement les questions pour le thème sélectionné
+          const response = await api.questions(selectedThemeId, 1000)
+          setQuestions(response.questions)
+          setQuestionPage(1)
           await refreshAll()
         } catch (error) {
           setImportResult("Erreur lors de l'import: " + errMsg(error))
@@ -1178,24 +1191,30 @@ export default function AdminUsersPage() {
                       </div>
                     ))}
                   </div>
-                  {questions.length > 10 && (
-                    <div className="pt-3 border-t border-[#E8E8E8]">
+                  {totalPages > 1 && (
+                    <div className="pt-3 border-t border-[#E8E8E8] flex items-center justify-between gap-2">
                       <Button
                         variant="secondary"
                         size="sm"
-                        className="w-full md:w-auto"
-                        onClick={() => setShowAllQuestions(!showAllQuestions)}
+                        onClick={() => setQuestionPage((p) => Math.max(1, p - 1))}
+                        disabled={questionPage === 1}
+                        className="gap-2"
                       >
-                        {showAllQuestions ? (
-                          <>
-                            <ChevronUp size={14} /> Masquer
-                          </>
-                        ) : (
-                          <>
-                            Voir plus ({questions.length - 10} restantes)
-                            <ChevronDown size={14} />
-                          </>
-                        )}
+                        <ChevronLeft size={14} />
+                        Précédent
+                      </Button>
+                      <span className="text-sm text-[#64748b]">
+                        Page {questionPage} / {totalPages} ({questions.length} questions)
+                      </span>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setQuestionPage((p) => Math.min(totalPages, p + 1))}
+                        disabled={questionPage === totalPages}
+                        className="gap-2"
+                      >
+                        Suivant
+                        <ChevronRight size={14} />
                       </Button>
                     </div>
                   )}
