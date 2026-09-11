@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, useRef } from "react"
 
 import usePageTitle from "../lib/usePageTitle"
 
@@ -119,7 +119,7 @@ export default function AdminUsersPage() {
 
   const [importResult, setImportResult] = useState<string | null>(null)
 
-  const fileInputRef = React.useRef<HTMLInputElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const stats = useAsync(
     () => api.statsPlateforme().then((d) => d.statsPlateforme),
