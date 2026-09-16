@@ -6,6 +6,7 @@ import {
   X,
   Repeat,
   AlertTriangle,
+  Activity,
 } from "lucide-react"
 import {
   Button,
@@ -22,7 +23,11 @@ import {
   DialogFooter,
 } from "../components/ui"
 import { api } from "../lib/api"
-import { quizGlobalApi, type QuizGlobalState } from "../lib/quizGlobalApi"
+import {
+  quizGlobalApi,
+  type QuizGlobalState,
+  type QuizGlobalPublicGame,
+} from "../lib/quizGlobalApi"
 import { GraphqlError } from "../lib/graphql"
 import { useAuth } from "../lib/auth"
 import { errMsg } from "../lib/hooks"
@@ -36,6 +41,18 @@ import { BACKEND_URL, GRAPHQL_URL, WS_URL } from "@/config/backend"
 const TARGETS = [4, 8, 12] as const
 const LETTERS = ["A", "B", "C", "D"] as const
 const WAITING_EXPIRY_MS = 30 * 60 * 1000
+
+const ACTIVE_STATUS_LABELS: Record<string, string> = {
+  THEME_SELECTION: "Choix du thème",
+  QUESTION_READING: "Lecture de la question",
+  ANSWERING: "Réponses en cours",
+  QUESTION_FINISHED: "Résultat",
+  TIE_BREAK_THEME: "Tie-Break",
+}
+
+function activeStatusLabel(status: string) {
+  return ACTIVE_STATUS_LABELS[status] ?? status
+}
 
 function remainingSeconds(deadline?: string | null, serverOffset = 0) {
   if (!deadline) return 0
@@ -86,6 +103,7 @@ export default function QuizGlobalPage({
     {},
   )
   const [waiting, setWaiting] = useState<QuizGlobalState[]>([])
+  const [activeGames, setActiveGames] = useState<QuizGlobalPublicGame[]>([])
   const [myActiveGames, setMyActiveGames] = useState<QuizGlobalState[]>([])
   const [blockedDialog, setBlockedDialog] = useState(false)
   const [game, setGame] = useState<QuizGlobalState | null>(null)
@@ -164,12 +182,14 @@ export default function QuizGlobalPage({
 
   const reloadLobbies = async () => {
     try {
-      const [open, mine, active] = await Promise.all([
+      const [open, mine, active, publicActive] = await Promise.all([
         quizGlobalApi.disponibles(),
         quizGlobalApi.mesParties(),
         quizGlobalApi.myActiveGame(),
+        quizGlobalApi.actives(),
       ])
       setWaiting(open.partiesQuizGlobalDisponibles ?? [])
+      setActiveGames(publicActive.partiesQuizGlobalActives ?? [])
       const mineList = mine.mesPartiesQuizGlobal ?? []
       const myPending = mineList.filter(
         (g) =>
@@ -513,6 +533,63 @@ export default function QuizGlobalPage({
           </Button>
         </div>
         {error && <p className="mb-4 text-sm text-[#D62828]">{error}</p>}
+        <div className="mb-6">
+          <h2 className="mb-3 font-semibold flex items-center gap-2">
+            <Activity size={16} className="text-[#16a34a]" /> Parties en cours
+          </h2>
+          {activeGames.length === 0 ? (
+            <Card>
+              <CardContent className="text-sm text-[#64748b]">
+                Aucune partie en cours pour le moment.
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {activeGames.map((g) => {
+                const isMine =
+                  g.playerA?.id === user?.id || g.playerB?.id === user?.id
+                return (
+                  <div
+                    key={g.gameId}
+                    className="flex items-center justify-between gap-3 rounded-2xl border border-[#e6f4ea] bg-white p-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold truncate">
+                        {g.playerA?.pseudo ?? "?"}{" "}
+                        <span className="text-[#16a34a]">
+                          {g.playerA?.score ?? 0}
+                        </span>{" "}
+                        —{" "}
+                        <span className="text-[#16a34a]">
+                          {g.playerB?.score ?? 0}
+                        </span>{" "}
+                        {g.playerB?.pseudo ?? "?"}
+                      </p>
+                      <p className="text-xs text-[#64748b]">
+                        Tour {g.currentTurn}/{g.targetQuestions} ·{" "}
+                        {activeStatusLabel(g.status)}
+                        {g.isTieBreak ? " · ⚡ Tie-Break" : ""}
+                        {Number(g.mise) > 0
+                          ? ` · 💰 ${Number(g.mise).toLocaleString("fr-MG")} Ar`
+                          : ""}
+                      </p>
+                    </div>
+                    {isMine && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="shrink-0"
+                        onClick={() => onNavigate("quizGlobal", g.gameId)}
+                      >
+                        Reprendre
+                      </Button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
         {myActiveGames.length > 0 && (
           <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4">
             <p className="flex items-center gap-2 text-sm font-semibold text-amber-800">

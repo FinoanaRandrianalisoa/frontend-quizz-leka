@@ -61,6 +61,20 @@ export type QuizGlobalState = {
   }> | null
 }
 
+export type QuizGlobalPublicGame = {
+  gameId: number
+  status: string
+  targetQuestions: number
+  currentTurn: number
+  activeSeat: string
+  isTieBreak: boolean
+  mise: string
+  serverTime: string
+  createdAt?: string | null
+  playerA?: QuizGlobalPlayerView | null
+  playerB?: QuizGlobalPlayerView | null
+}
+
 const STATE = `
   gameId status targetQuestions currentTurn activeSeat isTieBreak mise miseEffective
   phaseStartedAt phaseDeadline serverTime createdAt mySeat winnerId
@@ -107,6 +121,15 @@ export const quizGlobalApi = {
   myActiveGame() {
     return gql<{ myActiveGame: QuizGlobalState | null }>(
       `{ myActiveGame { ${STATE} } }`,
+    )
+  },
+  actives() {
+    return gql<{ partiesQuizGlobalActives: QuizGlobalPublicGame[] }>(
+      `{ partiesQuizGlobalActives {
+        gameId status targetQuestions currentTurn activeSeat isTieBreak mise serverTime createdAt
+        playerA { id pseudo seat score }
+        playerB { id pseudo seat score }
+      } }`,
     )
   },
   mesInvitations() {
