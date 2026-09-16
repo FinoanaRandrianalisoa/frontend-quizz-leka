@@ -47,10 +47,10 @@ export const CONNECTION_TEST = {
 export const QUALITY_HYSTERESIS = 2
 
 export const MONITOR_INTERVAL = {
-  stableMs: 10000,
-  degradedMs: 5000,
-  liveMs: 3500,
-  liveSaveDataMs: 12000,
+  stableMs: 15000,
+  degradedMs: 15000,
+  liveMs: 15000,
+  liveSaveDataMs: 30000,
 } as const
 
 export interface PingStats {

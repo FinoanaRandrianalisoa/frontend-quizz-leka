@@ -233,9 +233,14 @@ export function useConnectionMonitor(currentPage?: string) {
   useEffect(() => {
     let stopped = false
     const controller = { current: new AbortController() }
+    const isGamePage = GAME_PAGES.has(currentPage ?? "")
 
     const tick = async () => {
-      if (!network.online || network.saveData) {
+      // Le téléchargement de mesure (téléchargement réel) ne tourne que sur les
+      // pages de jeu : ailleurs on se contente de l'estimation du navigateur,
+      // sinon le moniteur tient une ligne HTTP ouverte en permanence et finit
+      // par frôler les quotas côté serveur (HTTP 429).
+      if (!network.online || network.saveData || !isGamePage) {
         if (network.downlink != null && network.downlink > 0) {
           setMetrics((current) => ({
             ...current,
@@ -270,7 +275,13 @@ export function useConnectionMonitor(currentPage?: string) {
       controller.current.abort()
       if (liveTimerRef.current) window.clearTimeout(liveTimerRef.current)
     }
-  }, [applyLiveSpeed, network.downlink, network.online, network.saveData])
+  }, [
+    applyLiveSpeed,
+    currentPage,
+    network.downlink,
+    network.online,
+    network.saveData,
+  ])
 
   return {
     metrics,

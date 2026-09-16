@@ -217,9 +217,100 @@ export default function QuizGlobalPage({
 
   useEffect(() => {
     void reloadLobbies()
-    const id = setInterval(() => void reloadLobbies(), 4000)
-    return () => clearInterval(id)
   }, [matchId, user?.id])
+
+  // ── WebSocket du lobby : parties en cours / salons ouverts en temps réel ──
+  // Remplace l'ancien polling GraphQL toutes les 4 s (affichage lent et
+  // coûteux). Le serveur pousse un LOBBY_STATE complet à la connexion puis un
+  // LOBBY_UPDATED à chaque changement d'état d'une partie.
+  const [lobbySocketOpen, setLobbySocketOpen] = useState(false)
+  useEffect(() => {
+    if (!user?.id || game) return
+    let stopped = false
+    let retries = 0
+    let reconnectTimer: number | null = null
+    let socket: WebSocket | null = null
+
+    const connect = () => {
+      if (stopped) return
+      const token = localStorage.getItem("access_token") || ""
+      const url = `${WS_URL}/ws/quiz-global/lobby/?token=${encodeURIComponent(token)}`
+      socket = new WebSocket(url)
+
+      socket.onopen = () => {
+        retries = 0
+        setLobbySocketOpen(true)
+      }
+
+      socket.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data)
+          if (data.event !== "LOBBY_STATE" && data.event !== "LOBBY_UPDATED") return
+          if (Array.isArray(data.partiesEnAttente)) {
+            setWaiting(data.partiesEnAttente)
+          }
+          if (Array.isArray(data.partiesActives)) {
+            setActiveGames(data.partiesActives)
+          }
+          if (data.event === "LOBBY_STATE") {
+            const mineList: QuizGlobalState[] = data.mesParties ?? []
+            const myPending = mineList.filter(
+              (g) =>
+                g.status === "WAITING" &&
+                g.invitedPlayer?.id &&
+                g.playerA?.id === user.id,
+            )
+            setPendingInvites(
+              Object.fromEntries(
+                myPending.map((g) => [String(g.invitedPlayer?.id), g.gameId]),
+              ),
+            )
+            setMyActiveGames(data.maPartieActive ? [data.maPartieActive] : [])
+          }
+        } catch {
+          /* message invalide : ignoré */
+        }
+      }
+
+      socket.onerror = () => {
+        /* la reconnexion est gérée par onclose */
+      }
+
+      socket.onclose = () => {
+        setLobbySocketOpen(false)
+        if (stopped) return
+        retries = Math.min(retries + 1, 5)
+        const delay = Math.min(1000 * 2 ** retries, 15000)
+        reconnectTimer = window.setTimeout(connect, delay)
+      }
+    }
+
+    connect()
+    return () => {
+      stopped = true
+      if (reconnectTimer) window.clearTimeout(reconnectTimer)
+      const current = socket
+      socket = null
+      if (current) {
+        current.onclose = null
+        try {
+          current.close()
+        } catch {
+          /* ignore */
+        }
+      }
+      setLobbySocketOpen(false)
+    }
+  }, [user?.id, Boolean(game)])
+
+  // Filet de sécurité : si le WebSocket est indisponible, on retombe sur un
+  // rafraîchissement HTTP lent (15 s) au lieu de l'ancien polling de 4 s.
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (!lobbySocketOpen) void reloadLobbies()
+    }, 15000)
+    return () => clearInterval(id)
+  }, [lobbySocketOpen, matchId, user?.id])
 
   useEffect(() => {
     if (!matchId) return

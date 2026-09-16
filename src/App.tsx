@@ -229,7 +229,7 @@ function AppShell() {
         // ignore
       }
     }
-    const id = setInterval(() => void check(), 8000)
+    const id = setInterval(() => void check(), 20000)
     return () => {
       cancelled = true
       clearInterval(id)

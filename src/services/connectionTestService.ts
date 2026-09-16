@@ -129,7 +129,7 @@ export async function runLightProbe(options: {
         options.signal,
       )
       if (result.ok) pingSamples.push(result.latency)
-      else failures += 1
+      else if (result.response.status !== 429) failures += 1
     } catch {
       failures += 1
     }
@@ -207,7 +207,7 @@ export async function runConnectionTest(options: {
         options.signal,
       )
       if (result.ok) pingSamples.push(result.latency)
-      else failures += 1
+      else if (result.response.status !== 429) failures += 1
     } catch {
       failures += 1
     }
