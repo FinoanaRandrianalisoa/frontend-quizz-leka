@@ -52,6 +52,17 @@ export function useConnectionMonitor(currentPage?: string) {
   const inFlight = useRef(false)
   const timerRef = useRef<number | null>(null)
   const liveTimerRef = useRef<number | null>(null)
+  const liveSpeedRef = useRef<number | null>(null)
+
+  const applyLiveSpeed = useCallback((next: number) => {
+    const clamped = Math.min(1000, Math.max(0.1, next))
+    const smoothed =
+      liveSpeedRef.current == null
+        ? clamped
+        : liveSpeedRef.current * 0.5 + clamped * 0.5
+    liveSpeedRef.current = smoothed
+    return smoothed
+  }, [])
 
   const applyQuality = useCallback(
     (next: ConnectionQuality, inGame: boolean) => {
@@ -174,7 +185,9 @@ export function useConnectionMonitor(currentPage?: string) {
       const ws = getWebsocketSnapshot()
       setMetrics((current) => ({ ...current, websocket: ws }))
     })
-    return unsub
+    return () => {
+      void unsub()
+    }
   }, [])
 
   useEffect(() => {
@@ -234,9 +247,10 @@ export function useConnectionMonitor(currentPage?: string) {
         controller.current = new AbortController()
         const mbps = await measureLiveDownloadMbps(controller.current.signal)
         if (!stopped && mbps != null) {
+          const smoothed = applyLiveSpeed(mbps)
           setMetrics((current) => ({
             ...current,
-            downloadMbps: mbps,
+            downloadMbps: smoothed,
             timestamp: Date.now(),
           }))
         }
@@ -256,7 +270,7 @@ export function useConnectionMonitor(currentPage?: string) {
       controller.current.abort()
       if (liveTimerRef.current) window.clearTimeout(liveTimerRef.current)
     }
-  }, [network.downlink, network.online, network.saveData])
+  }, [applyLiveSpeed, network.downlink, network.online, network.saveData])
 
   return {
     metrics,
