@@ -229,6 +229,7 @@ export default function QuizGlobalPage({
     let stopped = false
     let retries = 0
     let reconnectTimer: number | null = null
+    let heartbeatTimer: number | null = null
     let socket: WebSocket | null = null
 
     const connect = () => {
@@ -240,6 +241,18 @@ export default function QuizGlobalPage({
       socket.onopen = () => {
         retries = 0
         setLobbySocketOpen(true)
+        // Keepalive + resynchronisation de secours : le serveur renvoie un
+        // LOBBY_STATE complet, ce qui rafraîchit la liste même si un broadcast
+        // a été manqué, et évite la fermeture d'un socket inactif.
+        heartbeatTimer = window.setInterval(() => {
+          if (socket?.readyState === WebSocket.OPEN) {
+            try {
+              socket.send(JSON.stringify({ event: "REFRESH" }))
+            } catch {
+              /* ignore */
+            }
+          }
+        }, 20000)
       }
 
       socket.onmessage = (event) => {
@@ -278,9 +291,13 @@ export default function QuizGlobalPage({
 
       socket.onclose = () => {
         setLobbySocketOpen(false)
+        if (heartbeatTimer) {
+          window.clearInterval(heartbeatTimer)
+          heartbeatTimer = null
+        }
         if (stopped) return
         retries = Math.min(retries + 1, 5)
-        const delay = Math.min(1000 * 2 ** retries, 15000)
+        const delay = Math.min(1000 * 2 ** retries, 5000)
         reconnectTimer = window.setTimeout(connect, delay)
       }
     }
@@ -289,6 +306,7 @@ export default function QuizGlobalPage({
     return () => {
       stopped = true
       if (reconnectTimer) window.clearTimeout(reconnectTimer)
+      if (heartbeatTimer) window.clearInterval(heartbeatTimer)
       const current = socket
       socket = null
       if (current) {
