@@ -21,7 +21,7 @@ export type QuizGlobalQuestionView = {
   theme: string
   question: string
   isTieBreak: boolean
-  options?: { A: string B: string C: string D: string } | null
+  options?: { A: string; B: string; C: string; D: string } | null
   correctOption?: string | null
   correctText?: string | null
 }
@@ -135,7 +135,7 @@ export const quizGlobalApi = {
     )
   },
   repondre(gameId: number, gameQuestionId: number, selectedOption: string) {
-    return gql<{ repondreQuizGlobal: { ok: boolean status: string } }>(
+    return gql<{ repondreQuizGlobal: { ok: boolean; status: string } }>(
       `mutation($id: Int!, $qid: Int!, $opt: String!) {
         repondreQuizGlobal(gameId: $id, gameQuestionId: $qid, selectedOption: $opt) { ok status }
       }`,

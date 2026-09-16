@@ -531,6 +531,8 @@ export default function RabbitRacePage({
         const payload = JSON.parse(event.data) as {
           type?: string
 
+          match_id?: number
+
           invite_id?: number
 
           invite_pseudo?: string
@@ -613,6 +615,8 @@ export default function RabbitRacePage({
               .matchParId(matchId)
 
               .then((res) => {
+                if (!res.matchParId) return
+
                 applyMatch(res.matchParId)
 
                 // si on est l'hôte et il y a maintenant au moins 2 joueurs, lancer automatiquement

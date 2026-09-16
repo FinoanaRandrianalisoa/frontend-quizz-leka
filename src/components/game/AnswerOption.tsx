@@ -9,7 +9,7 @@ interface AnswerOptionProps {
   onClick?: () => void
 }
 
-const LETTERS: Record<string, { bg: string text: string }> = {
+const LETTERS: Record<string, { bg: string; text: string }> = {
   A: { bg: "#FF6B35", text: "white" },
   B: { bg: "#004E89", text: "white" },
   C: { bg: "#06A77D", text: "white" },

@@ -4,7 +4,7 @@ export const FINISH_POS = 24
 const GRID = 9
 
 /** 24 cages around a Ludo-style square, last cage is the finish. */
-export const PATH_CELLS: Array<{ r: number c: number }> = [
+export const PATH_CELLS: Array<{ r: number; c: number }> = [
   { r: 7, c: 1 },
   { r: 7, c: 2 },
   { r: 7, c: 3 },
@@ -31,7 +31,7 @@ export const PATH_CELLS: Array<{ r: number c: number }> = [
   { r: 4, c: 4 },
 ]
 
-const HOMES: Array<{ r: number c: number }> = [
+const HOMES: Array<{ r: number; c: number }> = [
   { r: 8, c: 0 },
   { r: 0, c: 8 },
 ]

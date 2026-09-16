@@ -182,7 +182,7 @@ export function Avatar({
     </div>
   )
 }
-export function AvatarImage({ src, alt }: { src: string alt: string }) {
+export function AvatarImage({ src, alt }: { src: string; alt: string }) {
   return <img src={src} alt={alt} className="w-full h-full object-cover" />
 }
 export function AvatarFallback({ children }: { children: React.ReactNode }) {
@@ -540,7 +540,7 @@ export function ScrollArea({
 // ─── Select ───────────────────────────────────────────────────────────────────
 interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   label?: string
-  options: { value: string label: string }[]
+  options: { value: string; label: string }[]
 }
 
 export function Select({
@@ -622,7 +622,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
 // ─── RadioGroup ───────────────────────────────────────────────────────────────
 interface RadioGroupProps {
-  options: { value: string label: string }[]
+  options: { value: string; label: string }[]
   value: string
   onChange: (v: string) => void
   className?: string

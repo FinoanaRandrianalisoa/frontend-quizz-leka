@@ -73,7 +73,7 @@ export default function SettingsPage({
     photoProfil: "",
     photoCouverture: "",
   })
-  const [villes, setVilles] = useState<Array<{ id: string nom: string }>>([])
+  const [villes, setVilles] = useState<Array<{ id: string; nom: string }>>([])
   const [prefs, setPrefs] = useState({
     notifications: true,
     sounds: true,

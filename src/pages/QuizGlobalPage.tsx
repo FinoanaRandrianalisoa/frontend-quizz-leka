@@ -338,7 +338,7 @@ export default function QuizGlobalPage({
     }
   }
 
-  const sendInvite = async (player: { id: string pseudo: string }) => {
+  const sendInvite = async (player: { id: string; pseudo: string }) => {
     setBusy(true)
     setError(null)
     try {

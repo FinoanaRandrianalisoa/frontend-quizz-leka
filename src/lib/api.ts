@@ -45,12 +45,12 @@ export type Theme = {
   nombreQuestions: number
 }
 
-export type Choix = { id: string texte: string estCorrecte?: boolean }
+export type Choix = { id: string; texte: string; estCorrecte?: boolean }
 
 export type Question = {
   id: string
   texte: string
-  theme: { id?: string nom: string }
+  theme: { id?: string; nom: string }
   choix: Choix[]
 }
 
@@ -70,10 +70,10 @@ export type Match = {
   mise?: string | null
   miseProposeeInvite?: string | null
   miseEffective?: string | null
-  theme: { id: string nom: string }
+  theme: { id: string; nom: string }
   joueurHote: Utilisateur
   joueurInvite?: Utilisateur | null
-  vainqueur?: { id: string pseudo: string } | null
+  vainqueur?: { id: string; pseudo: string } | null
   tourEnCours?: {
     id: string
     numero: number
@@ -172,7 +172,7 @@ export type Conversation = {
   type: "ami" | "groupe"
   identifiant: string
   adversaire?: Utilisateur | null
-  ville?: { id: string nom: string slug: string } | null
+  ville?: { id: string; nom: string; slug: string } | null
   dernierMessage: string
   dernierExpediteur?: Utilisateur | null
   dernierMessageHorodatage: string
@@ -234,6 +234,22 @@ export const api = {
       null,
     )
   },
+  forgotPassword(email: string) {
+    return gql<{ forgotPassword: boolean }>(
+      `mutation($email: String!) { forgotPassword(email: $email) }`,
+      { email },
+      null,
+    )
+  },
+  resetPassword(email: string, code: string, newPassword: string) {
+    return gql<{ resetPassword: boolean }>(
+      `mutation($email: String!, $code: String!, $newPassword: String!) {
+        resetPassword(email: $email, code: $code, newPassword: $newPassword)
+      }`,
+      { email, code, newPassword },
+      null,
+    )
+  },
   register(
     email: string,
     pseudo: string,
@@ -277,7 +293,7 @@ export const api = {
     return gql<{ moi: Utilisateur }>(`{ moi { ${USER_FIELDS} } }`)
   },
   pseudoInfo(pseudo: string) {
-    return gql<{ pseudoInfo: { disponible: boolean suggestion: string } }>(
+    return gql<{ pseudoInfo: { disponible: boolean; suggestion: string } }>(
       `query($pseudo: String!) { pseudoInfo(pseudo: $pseudo) { disponible suggestion } }`,
       { pseudo },
     )
@@ -330,7 +346,7 @@ export const api = {
     )
   },
   villes() {
-    return gql<{ villes: Array<{ id: string nom: string slug: string }> }>(
+    return gql<{ villes: Array<{ id: string; nom: string; slug: string }> }>(
       `{ villes { id nom slug } }`,
     )
   },
@@ -397,7 +413,7 @@ export const api = {
   createQuestion(
     themeId: number,
     texte: string,
-    reponses: { texte: string estCorrecte: boolean }[],
+    reponses: { texte: string; estCorrecte: boolean }[],
   ) {
     return gql<{ createQuestion: Question }>(
       `mutation($themeId: Int!, $texte: String!, $reponses: [ReponseInput!]!) {
@@ -411,7 +427,7 @@ export const api = {
   updateQuestion(
     questionId: number,
     texte: string,
-    reponses: { texte: string estCorrecte: boolean }[],
+    reponses: { texte: string; estCorrecte: boolean }[],
   ) {
     return gql<{ updateQuestion: Question }>(
       `mutation($questionId: Int!, $texte: String!, $reponses: [ReponseInput!]!) {

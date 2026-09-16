@@ -60,7 +60,7 @@ async function rawRefresh(): Promise<string | null> {
     return null
   }
   let json: {
-    data?: { refreshToken?: { accessToken?: string refreshToken?: string } }
+    data?: { refreshToken?: { accessToken?: string; refreshToken?: string } }
   }
   try {
     json = await res.json()
@@ -104,7 +104,7 @@ export async function gql<T>(
 
   let json: {
     data?: T
-    errors?: Array<{ message: string extensions?: { code?: string } }>
+    errors?: Array<{ message: string; extensions?: { code?: string } }>
   }
   try {
     json = await res.json()

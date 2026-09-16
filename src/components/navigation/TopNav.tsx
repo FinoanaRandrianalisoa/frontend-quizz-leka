@@ -52,7 +52,7 @@ function UserAvatar({
   size = "sm",
   online,
 }: {
-  user?: { pseudo?: string | null photoProfil?: string | null } | null
+  user?: { pseudo?: string | null; photoProfil?: string | null } | null
   size?: "sm" | "md" | "lg" | "xl"
   online?: boolean
 }) {

@@ -82,9 +82,9 @@ function initials(value?: string | null) {
   )
 }
 
-type DraftAnswer = { texte: string estCorrecte: boolean }
+type DraftAnswer = { texte: string; estCorrecte: boolean }
 
-type DraftQuestion = { id?: number texte: string answers: DraftAnswer[] }
+type DraftQuestion = { id?: number; texte: string; answers: DraftAnswer[] }
 
 const makeEmptyDraft = (): DraftQuestion => ({
   texte: "",

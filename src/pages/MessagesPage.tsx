@@ -36,7 +36,7 @@ type ChatMessage = {
   }
 }
 
-const FILTERS: Array<{ id: Filter label: string }> = [
+const FILTERS: Array<{ id: Filter; label: string }> = [
   { id: "tous", label: "Tous" },
   { id: "non_lues", label: "Non lues" },
   { id: "groupe", label: "Groupe de ville" },
@@ -52,7 +52,7 @@ function PersonAvatar({
   size = "sm",
   online,
 }: {
-  user?: { pseudo?: string | null photoProfil?: string | null } | null
+  user?: { pseudo?: string | null; photoProfil?: string | null } | null
   size?: "sm" | "md" | "lg" | "xl"
   online?: boolean
 }) {

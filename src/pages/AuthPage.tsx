@@ -45,6 +45,9 @@ export default function AuthPage({
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+  const [forgotStep, setForgotStep] = useState<"email" | "reset">("email")
+  const [resetCode, setResetCode] = useState("")
   const [loginId, setLoginId] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -63,7 +66,7 @@ export default function AuthPage({
   const [usernameSuggestion, setUsernameSuggestion] = useState("")
   const touchedRef = useRef(false)
   const autoBaseRef = useRef("")
-  const [villes, setVilles] = useState<Array<{ id: string nom: string }>>([])
+  const [villes, setVilles] = useState<Array<{ id: string; nom: string }>>([])
   const [registerStep, setRegisterStep] = useState<1 | 2>(1)
 
   const slugify = (s: string) =>
@@ -162,10 +165,53 @@ export default function AuthPage({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+    setSuccess(null)
     if (mode === "forgot") {
-      setError(
-        "La réinitialisation par email n'est pas encore branchée. Contactez un administrateur.",
-      )
+      if (forgotStep === "email") {
+        if (!email.trim()) {
+          setError("Veuillez saisir votre adresse email.")
+          return
+        }
+        setLoading(true)
+        try {
+          await api.forgotPassword(email.trim().toLowerCase())
+          setForgotStep("reset")
+          setSuccess("Un code de vérification a été envoyé à votre adresse email.")
+        } catch (err) {
+          setError(errMsg(err))
+        } finally {
+          setLoading(false)
+        }
+      } else {
+        if (!resetCode.trim()) {
+          setError("Veuillez saisir le code reçu par email.")
+          return
+        }
+        if (password.length < 8) {
+          setError("Le nouveau mot de passe doit contenir au moins 8 caractères.")
+          return
+        }
+        if (password !== confirmPassword) {
+          setError("Les mots de passe ne correspondent pas.")
+          return
+        }
+        setLoading(true)
+        try {
+          await api.resetPassword(email.trim().toLowerCase(), resetCode.trim(), password)
+          setSuccess("Mot de passe réinitialisé avec succès. Connectez-vous avec votre nouveau mot de passe.")
+          setMode("login")
+          setEmail("")
+          setResetCode("")
+          setPassword("")
+          setConfirmPassword("")
+          setForgotStep("email")
+          setError(null)
+        } catch (err) {
+          setError(errMsg(err))
+        } finally {
+          setLoading(false)
+        }
+      }
       return
     }
 
@@ -242,10 +288,10 @@ export default function AuthPage({
             <br />
             <span className="text-[#bbf7d0]">Découvre Madagascar.</span>
           </h1>
-          <p className="text-white/70 text-lg max-w-md">
+          {/* <p className="text-white/70 text-lg max-w-md">
             Compte administrateur de lancement : admin@quizz.mg — mot de passe
             défini dans le backend.
-          </p>
+          </p> */}
         </div>
       </div>
 
@@ -268,7 +314,9 @@ export default function AuthPage({
                     Mot de passe oublié
                   </h2>
                   <p className="text-sm text-[#A0A0A0] mb-6">
-                    Indiquez votre email. Un administrateur pourra vous aider.
+                    {forgotStep === "email"
+                      ? "Indiquez votre email pour recevoir un code de réinitialisation."
+                      : "Saisissez le code reçu et votre nouveau mot de passe."}
                   </p>
                   <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                     {error && (
@@ -276,28 +324,100 @@ export default function AuthPage({
                         {error}
                       </p>
                     )}
-                    <Input
-                      label="Email"
-                      type="email"
-                      placeholder="votre@email.mg"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      leftIcon={<Mail size={16} />}
-                      required
-                    />
+                    {success && (
+                      <p className="text-sm text-[#06A77D] bg-[#06A77D]/10 rounded-lg px-3 py-2">
+                        {success}
+                      </p>
+                    )}
+                    {forgotStep === "email" ? (
+                      <Input
+                        label="Email"
+                        type="email"
+                        placeholder="votre@email.mg"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        leftIcon={<Mail size={16} />}
+                        required
+                      />
+                    ) : (
+                      <>
+                        <Input
+                          label="Code de vérification"
+                          placeholder="Ex: 123456"
+                          value={resetCode}
+                          onChange={(e) => setResetCode(e.target.value)}
+                          leftIcon={<Mail size={16} />}
+                          required
+                        />
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-sm font-medium text-[#2D3142]">
+                            Nouveau mot de passe
+                          </label>
+                          <div className="relative flex items-center">
+                            <span className="absolute left-3 text-[#A0A0A0]">
+                              <Lock size={16} />
+                            </span>
+                            <input
+                              type={showPass ? "text" : "password"}
+                              placeholder="Minimum 8 caractères"
+                              value={password}
+                              onChange={(e) => setPassword(e.target.value)}
+                              className="w-full rounded-lg border border-[#D9D9D9] text-sm bg-white text-[#2D3142] placeholder:text-[#A0A0A0] pl-9 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-[#16a34a] focus:border-[#16a34a]"
+                              required
+                              minLength={8}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowPass((v) => !v)}
+                              className="absolute right-3 text-[#A0A0A0]"
+                              aria-label={showPass ? "Cacher" : "Montrer"}
+                            >
+                              {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                            </button>
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-sm font-medium text-[#2D3142]">
+                            Confirmer le mot de passe
+                          </label>
+                          <div className="relative flex items-center">
+                            <span className="absolute left-3 text-[#A0A0A0]">
+                              <Lock size={16} />
+                            </span>
+                            <input
+                              type={showPass ? "text" : "password"}
+                              placeholder="Retapez le mot de passe"
+                              value={confirmPassword}
+                              onChange={(e) => setConfirmPassword(e.target.value)}
+                              className="w-full rounded-lg border border-[#D9D9D9] text-sm bg-white text-[#2D3142] placeholder:text-[#A0A0A0] pl-9 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-[#16a34a] focus:border-[#16a34a]"
+                              required
+                              minLength={8}
+                            />
+                          </div>
+                        </div>
+                      </>
+                    )}
                     <Button
                       type="submit"
                       loading={loading}
                       size="lg"
                       className="w-full"
                     >
-                      Continuer <ArrowRight size={16} />
+                      {forgotStep === "email"
+                        ? "Envoyer le code"
+                        : "Réinitialiser le mot de passe"}{" "}
+                      <ArrowRight size={16} />
                     </Button>
                     <button
                       type="button"
                       onClick={() => {
                         setMode("login")
                         setError(null)
+                        setSuccess(null)
+                        setForgotStep("email")
+                        setResetCode("")
+                        setPassword("")
+                        setConfirmPassword("")
                       }}
                       className="text-sm text-[#A0A0A0] hover:text-[#16a34a] transition-colors text-center"
                     >
@@ -625,6 +745,8 @@ export default function AuthPage({
                         setMode("login")
                         setError(null)
                         setRegisterStep(1)
+                        setSuccess(null)
+                        setForgotStep("email")
                       }}
                       className="text-[#16a34a] font-medium hover:underline"
                     >
@@ -646,6 +768,11 @@ export default function AuthPage({
                         {error}
                       </p>
                     )}
+                    {success && (
+                      <p className="text-sm text-[#06A77D] bg-[#06A77D]/10 rounded-lg px-3 py-2">
+                        {success}
+                      </p>
+                    )}
                     <Input
                       label="Email ou téléphone"
                       type="text"
@@ -662,7 +789,12 @@ export default function AuthPage({
                         </label>
                         <button
                           type="button"
-                          onClick={() => setMode("forgot")}
+                          onClick={() => {
+                            setMode("forgot")
+                            setError(null)
+                            setSuccess(null)
+                            setForgotStep("email")
+                          }}
                           className="text-xs text-[#16a34a] hover:underline"
                         >
                           Mot de passe oublié ?
@@ -706,6 +838,7 @@ export default function AuthPage({
                       onClick={() => {
                         setMode("register")
                         setError(null)
+                        setSuccess(null)
                       }}
                       className="text-[#16a34a] font-medium hover:underline"
                     >
