@@ -33,6 +33,7 @@ import { api } from "../../lib/api"
 import UserName from "../UserName"
 import type { DemandeAmi } from "../../lib/api"
 import type { NavigateFn } from "../../App"
+import ConnectionMonitor from "../connection/ConnectionMonitor"
 
 interface TopNavProps {
   currentPage: string
@@ -505,6 +506,8 @@ export default function TopNav({ currentPage, onNavigate }: TopNavProps) {
               )}
             </button>
           </Tooltip>
+
+          <ConnectionMonitor currentPage={currentPage} />
 
           <div className="relative">
             <button
