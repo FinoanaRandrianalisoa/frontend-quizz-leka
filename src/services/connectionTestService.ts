@@ -72,7 +72,6 @@ async function timedRequest(
   try {
     const response = await fetch(url, {
       ...init,
-      cache: "no-store",
       signal,
     })
     const end = performance.now()
@@ -153,7 +152,7 @@ export async function measureLiveDownloadMbps(signal?: AbortSignal) {
   try {
     const response = await fetch(
       `${DOWNLOAD_URL}?size=${bytes}&testId=${testId()}`,
-      { cache: "no-store", signal: timeout },
+      { signal: timeout },
     )
     const buffer = await response.arrayBuffer()
     const seconds = Math.max((performance.now() - start) / 1000, 0.001)
@@ -254,7 +253,7 @@ export async function runConnectionTest(options: {
       )
       const response = await fetch(
         `${DOWNLOAD_URL}?size=${CONNECTION_TEST.downloadBytes}&testId=${testId()}`,
-        { cache: "no-store", signal },
+        { signal },
       )
       const buffer = await response.arrayBuffer()
       const seconds = Math.max((performance.now() - start) / 1000, 0.001)

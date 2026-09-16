@@ -223,7 +223,9 @@ export function useConnectionMonitor(currentPage?: string) {
         void tick()
       }, delay)
     }
-    void tick()
+    timerRef.current = window.setTimeout(() => {
+      void tick()
+    }, 1500)
     return () => {
       stopped = true
       if (timerRef.current) window.clearTimeout(timerRef.current)
@@ -269,7 +271,9 @@ export function useConnectionMonitor(currentPage?: string) {
       }, delay)
     }
 
-    void tick()
+    liveTimerRef.current = window.setTimeout(() => {
+      void tick()
+    }, 2500)
     return () => {
       stopped = true
       controller.current.abort()

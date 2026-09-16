@@ -13,6 +13,19 @@ function notify() {
   listeners.forEach((listener) => listener())
 }
 
+function track(socket: WebSocket) {
+  sockets.add(socket)
+  socket.addEventListener("open", () => notify())
+  socket.addEventListener("error", () => notify())
+  socket.addEventListener("close", () => {
+    sockets.delete(socket)
+    reconnectCount += 1
+    reconnectTime = Date.now()
+    notify()
+  })
+  notify()
+}
+
 export function getWebsocketSnapshot() {
   let hasOpen = false
   let hasConnecting = false
@@ -39,26 +52,34 @@ export function subscribeWebsocketTracker(listener: Listener) {
   return () => listeners.delete(listener)
 }
 
+/**
+ * Observe native sockets without subclassing WebSocket.
+ * Extending WebSocket in Firefox aborts wss connections during page load (1006).
+ */
 export function installWebSocketTracker() {
   if (installed || typeof window === "undefined") return
   installed = true
   const Original = window.WebSocket
 
-  class TrackedWebSocket extends Original {
-    constructor(url: string | URL, protocols?: string | string[]) {
-      super(url, protocols)
-      sockets.add(this)
-      this.addEventListener("open", () => notify())
-      this.addEventListener("error", () => notify())
-      this.addEventListener("close", () => {
-        sockets.delete(this)
-        reconnectCount += 1
-        reconnectTime = Date.now()
-        notify()
-      })
-      notify()
-    }
-  }
+  const Wrapped = function WebSocket(
+    url: string | URL,
+    protocols?: string | string[],
+  ) {
+    const socket =
+      protocols === undefined
+        ? new Original(url)
+        : new Original(url, protocols)
+    track(socket)
+    return socket
+  } as unknown as typeof Original
 
-  window.WebSocket = TrackedWebSocket
+  Wrapped.prototype = Original.prototype
+  Object.defineProperties(Wrapped, {
+    CONNECTING: { value: Original.CONNECTING },
+    OPEN: { value: Original.OPEN },
+    CLOSING: { value: Original.CLOSING },
+    CLOSED: { value: Original.CLOSED },
+  })
+
+  window.WebSocket = Wrapped
 }
