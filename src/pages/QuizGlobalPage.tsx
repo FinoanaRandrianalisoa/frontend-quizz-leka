@@ -124,6 +124,10 @@ export default function QuizGlobalPage({
     seat: string
   } | null>(null)
   const [confirmQuitOpen, setConfirmQuitOpen] = useState(false)
+  const [leaveTarget, setLeaveTarget] = useState<{
+    gameId: number
+    label: string
+  } | null>(null)
   const socketRef = useRef<WebSocket | null>(null)
   const tieBreakShownRef = useRef(false)
   const exitedGameIdsRef = useRef<Set<number>>(
@@ -445,6 +449,24 @@ export default function QuizGlobalPage({
     }
   }
 
+  // Quitte une partie en cours depuis le lobby : la partie passe en ABANDONED
+  // (inactive), disparaît de « Parties en cours » et les mises sont remboursées.
+  const doLeaveActiveGame = async () => {
+    if (!leaveTarget) return
+    const { gameId } = leaveTarget
+    setLeaveTarget(null)
+    setBusy(true)
+    setError(null)
+    try {
+      await quizGlobalApi.annuler(gameId)
+      await reloadLobbies()
+    } catch (err) {
+      setError(errMsg(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const handleJoinBlockedError = (err: unknown) => {
     if (err instanceof GraphqlError && err.code === "PLAYER_ALREADY_IN_GAME") {
       setBlockedDialog(true)
@@ -684,14 +706,28 @@ export default function QuizGlobalPage({
                       </p>
                     </div>
                     {isMine && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="shrink-0"
-                        onClick={() => onNavigate("quizGlobal", g.gameId)}
-                      >
-                        Reprendre
-                      </Button>
+                      <div className="flex shrink-0 gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => onNavigate("quizGlobal", g.gameId)}
+                        >
+                          Reprendre
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          disabled={busy}
+                          onClick={() =>
+                            setLeaveTarget({
+                              gameId: g.gameId,
+                              label: `${g.playerA?.pseudo ?? "?"} vs ${g.playerB?.pseudo ?? "?"}`,
+                            })
+                          }
+                        >
+                          Quitter
+                        </Button>
+                      </div>
                     )}
                   </div>
                 )
@@ -748,6 +784,23 @@ export default function QuizGlobalPage({
                           onClick={() => void cancelMyGame(g.gameId)}
                         >
                           Annuler la partie
+                        </Button>
+                      )}
+                      {!cancelable && g.status !== "WAITING" && (
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          disabled={busy}
+                          onClick={() =>
+                            setLeaveTarget({
+                              gameId: g.gameId,
+                              label: g.playerB
+                                ? `${g.playerA?.pseudo} vs ${g.playerB.pseudo}`
+                                : `Partie #${g.gameId}`,
+                            })
+                          }
+                        >
+                          Quitter
                         </Button>
                       )}
                     </div>
@@ -904,11 +957,43 @@ export default function QuizGlobalPage({
             </CardContent>
           </Card>
         </div>
+
+        <Dialog
+          open={leaveTarget !== null}
+          onClose={() => setLeaveTarget(null)}
+        >
+          <DialogHeader>
+            <DialogTitle>Quitter la partie</DialogTitle>
+          </DialogHeader>
+          <DialogContent className="text-sm text-[#334155]">
+            <p>
+              Voulez-vous vraiment quitter la partie{" "}
+              <span className="font-semibold">{leaveTarget?.label}</span> ? Elle
+              sera marquée comme abandonnée et retirée de « Parties en cours ».
+            </p>
+            <p className="text-xs text-[#64748b]">
+              Les mises engagées seront remboursées à chaque joueur.
+            </p>
+          </DialogContent>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setLeaveTarget(null)}>
+              Annuler
+            </Button>
+            <Button
+              variant="destructive"
+              loading={busy}
+              onClick={() => void doLeaveActiveGame()}
+            >
+              Quitter
+            </Button>
+          </DialogFooter>
+        </Dialog>
       </div>
     )
   }
 
   const phaseLen = phaseDuration(game) ?? 10
+
 
   return (
     <div className="max-w-6xl mx-auto px-4 md:px-6 py-8 flex gap-6 items-start">
