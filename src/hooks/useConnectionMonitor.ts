@@ -13,7 +13,10 @@ import {
   getWebsocketSnapshot,
   subscribeWebsocketTracker,
 } from "../lib/websocketTracker"
-import { runLightProbe } from "../services/connectionTestService"
+import {
+  measureLiveDownloadMbps,
+  runLightProbe,
+} from "../services/connectionTestService"
 import { useNetworkInformation } from "./useNetworkInformation"
 
 const GAME_PAGES = new Set([
@@ -48,6 +51,7 @@ export function useConnectionMonitor(currentPage?: string) {
   })
   const inFlight = useRef(false)
   const timerRef = useRef<number | null>(null)
+  const liveTimerRef = useRef<number | null>(null)
 
   const applyQuality = useCallback(
     (next: ConnectionQuality, inGame: boolean) => {
@@ -174,6 +178,23 @@ export function useConnectionMonitor(currentPage?: string) {
   }, [])
 
   useEffect(() => {
+    if (network.downlink != null && network.downlink > 0) {
+      setMetrics((current) => ({
+        ...current,
+        networkType: network.type,
+        effectiveType: network.effectiveType,
+        saveData: network.saveData,
+        downloadMbps: current.downloadMbps ?? network.downlink,
+      }))
+    }
+  }, [
+    network.downlink,
+    network.effectiveType,
+    network.saveData,
+    network.type,
+  ])
+
+  useEffect(() => {
     let stopped = false
     const tick = async () => {
       await measureLight()
@@ -195,6 +216,47 @@ export function useConnectionMonitor(currentPage?: string) {
       if (timerRef.current) window.clearTimeout(timerRef.current)
     }
   }, [measureLight])
+
+  useEffect(() => {
+    let stopped = false
+    const controller = { current: new AbortController() }
+
+    const tick = async () => {
+      if (!network.online || network.saveData) {
+        if (network.downlink != null && network.downlink > 0) {
+          setMetrics((current) => ({
+            ...current,
+            downloadMbps: network.downlink,
+          }))
+        }
+      } else {
+        controller.current.abort()
+        controller.current = new AbortController()
+        const mbps = await measureLiveDownloadMbps(controller.current.signal)
+        if (!stopped && mbps != null) {
+          setMetrics((current) => ({
+            ...current,
+            downloadMbps: mbps,
+            timestamp: Date.now(),
+          }))
+        }
+      }
+      if (stopped) return
+      const delay = network.saveData
+        ? MONITOR_INTERVAL.liveSaveDataMs
+        : MONITOR_INTERVAL.liveMs
+      liveTimerRef.current = window.setTimeout(() => {
+        void tick()
+      }, delay)
+    }
+
+    void tick()
+    return () => {
+      stopped = true
+      controller.current.abort()
+      if (liveTimerRef.current) window.clearTimeout(liveTimerRef.current)
+    }
+  }, [network.downlink, network.online, network.saveData])
 
   return {
     metrics,

@@ -41,6 +41,7 @@ export const CONNECTION_TEST = {
   fullSamples: 10,
   downloadBytes: 128 * 1024,
   uploadBytes: 64 * 1024,
+  liveDownloadBytes: 48 * 1024,
 } as const
 
 export const QUALITY_HYSTERESIS = 2
@@ -48,6 +49,8 @@ export const QUALITY_HYSTERESIS = 2
 export const MONITOR_INTERVAL = {
   stableMs: 10000,
   degradedMs: 5000,
+  liveMs: 3500,
+  liveSaveDataMs: 12000,
 } as const
 
 export interface PingStats {
@@ -305,6 +308,13 @@ export function formatMetric(
   const rounded =
     digits === 0 ? Math.round(value) : Number(value.toFixed(digits))
   return `${rounded} ${unit}`
+}
+
+export function formatMbpsLive(value: number | null | undefined) {
+  if (value == null || Number.isNaN(value)) return "—"
+  if (value < 0.1) return "<0.1"
+  if (value < 10) return value.toFixed(1)
+  return `${Math.round(value)}`
 }
 
 export function logConnectionMonitor(metrics: ConnectionMetrics) {

@@ -143,6 +143,29 @@ export async function runLightProbe(options: {
   }
 }
 
+export async function measureLiveDownloadMbps(signal?: AbortSignal) {
+  const bytes = CONNECTION_TEST.liveDownloadBytes
+  const { signal: timeout, cleanup } = timeoutSignal(
+    CONNECTION_TIMEOUTS.download,
+    signal,
+  )
+  const start = performance.now()
+  try {
+    const response = await fetch(
+      `${DOWNLOAD_URL}?size=${bytes}&testId=${testId()}`,
+      { cache: "no-store", signal: timeout },
+    )
+    const buffer = await response.arrayBuffer()
+    const seconds = Math.max((performance.now() - start) / 1000, 0.001)
+    if (!response.ok || buffer.byteLength === 0) return null
+    return (buffer.byteLength * 8) / seconds / 1_000_000
+  } catch {
+    return null
+  } finally {
+    cleanup()
+  }
+}
+
 export async function runConnectionTest(options: {
   mode: "quick" | "full"
   websocketStatus: WebsocketStatus

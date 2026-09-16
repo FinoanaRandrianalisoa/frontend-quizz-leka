@@ -1,6 +1,7 @@
 import { Signal, Smartphone, Wifi, WifiOff } from "lucide-react"
 import ConnectionPopover from "./ConnectionPopover"
 import {
+  formatMbpsLive,
   qualityColor,
   qualityLabel,
   type ConnectionMetrics,
@@ -49,28 +50,35 @@ export function ConnectionStatusButton({
   onToggle: () => void
 }) {
   const score = metrics.score
+  const mbps = formatMbpsLive(metrics.downloadMbps)
   const label = `Qualité de connexion : ${qualityLabel(metrics.quality).toLowerCase()}${
     score == null ? "" : `, ${score} pour cent`
-  }`
+  }, débit ${mbps} mégabits par seconde`
   return (
     <button
       type="button"
       onClick={onToggle}
       aria-label={label}
       aria-expanded={open}
-      className="relative flex h-10 items-center gap-1.5 rounded-xl border border-[#d9e7dd] bg-white px-2.5 text-[#64748b] transition-colors hover:bg-[#f3faf4] hover:text-[#1f2a1f]"
+      title={label}
+      className="relative flex h-10 shrink-0 items-center gap-1.5 rounded-xl border-2 border-[#16a34a]/40 bg-[#f0fdf4] px-2.5 text-[#15803d] transition-colors hover:bg-[#dcfce7] hover:text-[#14532d]"
     >
       <TypeIcon
         type={metrics.networkType}
         offline={metrics.quality === "OFFLINE"}
       />
       <span
-        className="inline-block h-2.5 w-2.5 rounded-full"
+        className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
         style={{ background: qualityColor(metrics.quality) }}
         aria-hidden
       />
-      <span className="hidden xl:inline text-xs font-semibold tabular-nums text-[#1f2a1f]">
-        {score == null ? "—" : `${score}%`}
+      <span className="flex flex-col items-start leading-none">
+        <span className="text-[9px] font-bold uppercase tracking-wide text-[#64748b]">
+          Débit
+        </span>
+        <span className="text-xs font-black tabular-nums text-[#1f2a1f]">
+          {mbps} Mb/s
+        </span>
       </span>
     </button>
   )

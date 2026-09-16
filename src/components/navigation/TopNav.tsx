@@ -509,7 +509,7 @@ export default function TopNav({ currentPage, onNavigate }: TopNavProps) {
 
           <ConnectionMonitor currentPage={currentPage} />
 
-          <div className="relative">
+          <div className="relative shrink-0">
             <button
               onClick={() => setUserMenuOpen((v) => !v)}
               className="flex items-center gap-2 px-2 py-1 rounded-xl hover:bg-[#f3faf4] transition-colors"
