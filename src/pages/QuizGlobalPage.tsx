@@ -99,16 +99,13 @@ export default function QuizGlobalPage({
     pseudo: string
     enLigne?: boolean
   }>>([])
-  const [pendingInvites, setPendingInvites] = useState<Record<string, number>>(
-    {},
-  )
   const [waiting, setWaiting] = useState<QuizGlobalState[]>([])
   const [activeGames, setActiveGames] = useState<QuizGlobalPublicGame[]>([])
   const [myActiveGames, setMyActiveGames] = useState<QuizGlobalState[]>([])
   const [blockedDialog, setBlockedDialog] = useState(false)
   const [game, setGame] = useState<QuizGlobalState | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
+  const [pending, setPending] = useState<Set<string>>(() => new Set())
   const [tick, setTick] = useState(0)
   const [ackStatus, setAckStatus] = useState<string | null>(null)
   const [myPick, setMyPick] = useState<string | null>(null)
@@ -152,6 +149,24 @@ export default function QuizGlobalPage({
     }
   }
 
+  // Chaque action est suivie individuellement : seule la requête en cours est
+  // neutralisée, les autres boutons restent utilisables (l'ancien flag `busy`
+  // global bloquait toute l'interface dès qu'une action était lancée).
+  const isPending = (key: string) => pending.has(key)
+  const runAction = async (key: string, fn: () => Promise<void>) => {
+    setPending((prev) => new Set(prev).add(key))
+    setError(null)
+    try {
+      await fn()
+    } finally {
+      setPending((prev) => {
+        const next = new Set(prev)
+        next.delete(key)
+        return next
+      })
+    }
+  }
+
   useEffect(() => {
     if (
       game?.question?.isTieBreak &&
@@ -186,26 +201,13 @@ export default function QuizGlobalPage({
 
   const reloadLobbies = async () => {
     try {
-      const [open, mine, active, publicActive] = await Promise.all([
+      const [open, active, publicActive] = await Promise.all([
         quizGlobalApi.disponibles(),
-        quizGlobalApi.mesParties(),
         quizGlobalApi.myActiveGame(),
         quizGlobalApi.actives(),
       ])
       setWaiting(open.partiesQuizGlobalDisponibles ?? [])
       setActiveGames(publicActive.partiesQuizGlobalActives ?? [])
-      const mineList = mine.mesPartiesQuizGlobal ?? []
-      const myPending = mineList.filter(
-        (g) =>
-          g.status === "WAITING" &&
-          g.invitedPlayer?.id &&
-          g.playerA?.id === user?.id,
-      )
-      setPendingInvites(
-        Object.fromEntries(
-          myPending.map((g) => [String(g.invitedPlayer?.id), g.gameId]),
-        ),
-      )
       // Partie réellement active (unique). Une partie FINISHED/CANCELLED/EXPIRED/ABANDONED
       // n'apparaît jamais ici et ne doit jamais bloquer le joueur.
       setMyActiveGames(active.myActiveGame ? [active.myActiveGame] : [])
@@ -270,18 +272,6 @@ export default function QuizGlobalPage({
             setActiveGames(data.partiesActives)
           }
           if (data.event === "LOBBY_STATE") {
-            const mineList: QuizGlobalState[] = data.mesParties ?? []
-            const myPending = mineList.filter(
-              (g) =>
-                g.status === "WAITING" &&
-                g.invitedPlayer?.id &&
-                g.playerA?.id === user.id,
-            )
-            setPendingInvites(
-              Object.fromEntries(
-                myPending.map((g) => [String(g.invitedPlayer?.id), g.gameId]),
-              ),
-            )
             setMyActiveGames(data.maPartieActive ? [data.maPartieActive] : [])
           }
         } catch {
@@ -430,41 +420,56 @@ export default function QuizGlobalPage({
     ackStatus === "INCORRECT" ||
     ackStatus === "RECORDED"
 
+  // Salon en attente dont je suis l'hôte : sert à rattacher plusieurs
+  // invitations au même salon plutôt que d'en créer un par joueur.
+  const myWaitingSalon = useMemo(() => {
+    const active = myActiveGames[0]
+    if (active?.status === "WAITING" && active.playerA?.id === user?.id) {
+      return active
+    }
+    return null
+  }, [myActiveGames, user?.id])
+
+  const pendingInvites = useMemo<Record<string, number>>(() => {
+    if (!myWaitingSalon) return {}
+    return Object.fromEntries(
+      (myWaitingSalon.pendingInvitees ?? []).map((p) => [
+        p.id,
+        myWaitingSalon.gameId,
+      ]),
+    )
+  }, [myWaitingSalon])
+
   const miseValue = (): number => {
     const n = parseFloat(mise || "0")
     return Number.isFinite(n) && n > 0 ? n : 0
   }
 
-  const cancelMyGame = async (gameId: number) => {
-    setBusy(true)
-    setError(null)
-    try {
-      await quizGlobalApi.annuler(gameId)
-      setBlockedDialog(false)
-      await reloadLobbies()
-    } catch (err) {
-      setError(errMsg(err))
-    } finally {
-      setBusy(false)
-    }
-  }
+  const cancelMyGame = (gameId: number) =>
+    runAction(`cancelGame:${gameId}`, async () => {
+      try {
+        await quizGlobalApi.annuler(gameId)
+        setBlockedDialog(false)
+        await reloadLobbies()
+      } catch (err) {
+        setError(errMsg(err))
+      }
+    })
 
   // Quitte une partie en cours depuis le lobby : la partie passe en ABANDONED
   // (inactive), disparaît de « Parties en cours » et les mises sont remboursées.
-  const doLeaveActiveGame = async () => {
-    if (!leaveTarget) return
+  const doLeaveActiveGame = () => {
+    if (!leaveTarget) return Promise.resolve()
     const { gameId } = leaveTarget
     setLeaveTarget(null)
-    setBusy(true)
-    setError(null)
-    try {
-      await quizGlobalApi.annuler(gameId)
-      await reloadLobbies()
-    } catch (err) {
-      setError(errMsg(err))
-    } finally {
-      setBusy(false)
-    }
+    return runAction(`leave:${gameId}`, async () => {
+      try {
+        await quizGlobalApi.annuler(gameId)
+        await reloadLobbies()
+      } catch (err) {
+        setError(errMsg(err))
+      }
+    })
   }
 
   const handleJoinBlockedError = (err: unknown) => {
@@ -475,73 +480,56 @@ export default function QuizGlobalPage({
     setError(errMsg(err))
   }
 
-  const createGame = async () => {
-    setBusy(true)
-    setError(null)
-    try {
-      const res = await quizGlobalApi.creer(target, undefined, miseValue())
-      setGame(withServerOffset(res.creerPartieQuizGlobal))
-      onNavigate("quizGlobal", res.creerPartieQuizGlobal.gameId)
-    } catch (err) {
-      handleJoinBlockedError(err)
-    } finally {
-      setBusy(false)
-    }
-  }
+  const createGame = () =>
+    runAction("create", async () => {
+      try {
+        const res = await quizGlobalApi.creer(target, undefined, miseValue())
+        setGame(withServerOffset(res.creerPartieQuizGlobal))
+        onNavigate("quizGlobal", res.creerPartieQuizGlobal.gameId)
+      } catch (err) {
+        handleJoinBlockedError(err)
+      }
+    })
 
-  const sendInvite = async (player: { id: string; pseudo: string }) => {
-    setBusy(true)
-    setError(null)
-    try {
-      const res = await quizGlobalApi.creer(
-        target,
-        Number(player.id),
-        miseValue(),
-      )
-      setPendingInvites((prev) => ({
-        ...prev,
-        [player.id]: res.creerPartieQuizGlobal.gameId,
-      }))
-      await reloadLobbies()
-    } catch (err) {
-      setError(errMsg(err))
-    } finally {
-      setBusy(false)
-    }
-  }
+  // Plusieurs invitations partagent le MÊME salon : la première crée le salon,
+  // les suivantes utilisent `inviterPartieQuizGlobal` (sinon le backend refuse
+  // une 2e création active avec PLAYER_ALREADY_IN_GAME).
+  const sendInvite = (player: { id: string; pseudo: string }) =>
+    runAction(`invite:${player.id}`, async () => {
+      try {
+        if (myWaitingSalon) {
+          await quizGlobalApi.inviter(myWaitingSalon.gameId, Number(player.id))
+        } else {
+          await quizGlobalApi.creer(target, Number(player.id), miseValue())
+        }
+        await reloadLobbies()
+      } catch (err) {
+        handleJoinBlockedError(err)
+      }
+    })
 
-  const cancelInvite = async (playerId: string, gameId: number) => {
-    setBusy(true)
-    setError(null)
-    try {
-      await quizGlobalApi.annuler(gameId)
-      setPendingInvites((prev) => {
-        const next = { ...prev }
-        delete next[playerId]
-        return next
-      })
-      await reloadLobbies()
-    } catch (err) {
-      setError(errMsg(err))
-    } finally {
-      setBusy(false)
-    }
-  }
+  const cancelInvite = (playerId: string, gameId: number) =>
+    runAction(`cancelInvite:${playerId}`, async () => {
+      try {
+        await quizGlobalApi.annulerInvitation(gameId, Number(playerId))
+        await reloadLobbies()
+      } catch (err) {
+        setError(errMsg(err))
+      }
+    })
 
-  const joinGame = async (id: number) => {
-    setBusy(true)
-    try {
-      const res = await quizGlobalApi.rejoindre(id, miseValue())
-      exitedGameIdsRef.current.delete(id)
-      persistExited(exitedGameIdsRef.current)
-      setGame(withServerOffset(res.rejoindrePartieQuizGlobal))
-      onNavigate("quizGlobal", id)
-    } catch (err) {
-      handleJoinBlockedError(err)
-    } finally {
-      setBusy(false)
-    }
-  }
+  const joinGame = (id: number) =>
+    runAction(`join:${id}`, async () => {
+      try {
+        const res = await quizGlobalApi.rejoindre(id, miseValue())
+        exitedGameIdsRef.current.delete(id)
+        persistExited(exitedGameIdsRef.current)
+        setGame(withServerOffset(res.rejoindrePartieQuizGlobal))
+        onNavigate("quizGlobal", id)
+      } catch (err) {
+        handleJoinBlockedError(err)
+      }
+    })
 
   const chooseTheme = async (themeId: number) => {
     if (!game) return
@@ -576,22 +564,19 @@ export default function QuizGlobalPage({
     return "Gagnant"
   }, [game])
 
-  const startRematch = async () => {
-    if (!game) return
-    setBusy(true)
-    setError(null)
-    try {
-      const res = await quizGlobalApi.revanche(game.gameId)
-      const next = withServerOffset(res.revanchePartieQuizGlobal)
-      exitedGameIdsRef.current.delete(game.gameId)
-      setGame(next)
-      onNavigate("quizGlobal", next.gameId)
-    } catch (err) {
-      setError(errMsg(err))
-    } finally {
-      setBusy(false)
-    }
-  }
+  const startRematch = () =>
+    runAction("rematch", async () => {
+      if (!game) return
+      try {
+        const res = await quizGlobalApi.revanche(game.gameId)
+        const next = withServerOffset(res.revanchePartieQuizGlobal)
+        exitedGameIdsRef.current.delete(game.gameId)
+        setGame(next)
+        onNavigate("quizGlobal", next.gameId)
+      } catch (err) {
+        setError(errMsg(err))
+      }
+    })
 
   const confirmQuit = () => {
     if (!game) return
@@ -642,6 +627,91 @@ export default function QuizGlobalPage({
       "QUESTION_FINISHED",
       "TIE_BREAK_THEME",
     ].includes(game.status)
+
+  // Rendu dans les DEUX branches (lobby et partie) : sinon une tentative
+  // d'action bloquée depuis le lobby n'affichait aucun message.
+  const blockedDialogEl = (
+    <Dialog open={blockedDialog} onClose={() => setBlockedDialog(false)}>
+      <DialogHeader>
+        <DialogTitle>Partie existante</DialogTitle>
+      </DialogHeader>
+      <DialogContent className="text-sm text-[#334155]">
+        <p className="flex items-start gap-2 rounded-xl bg-amber-50 border border-amber-200 p-3">
+          <AlertTriangle
+            className="mt-0.5 shrink-0 text-amber-600"
+            size={18}
+          />
+          <span>
+            Vous êtes déjà engagé dans une autre partie. Annulez la partie en
+            attente (avant qu'un adversaire ne la rejoigne) ou reprenez la
+            partie en cours.
+          </span>
+        </p>
+        <div className="space-y-2">
+          {myActiveGames.length === 0 && (
+            <p className="text-sm text-[#64748b]">
+              Aucune partie active détectée — recharge en cours…
+            </p>
+          )}
+          {myActiveGames.map((g) => {
+            const isHost = g.playerA?.id === user?.id
+            const cancelable = g.status === "WAITING" && isHost
+            const inviteeNames = (g.pendingInvitees ?? [])
+              .map((p) => p.pseudo)
+              .join(", ")
+            return (
+              <div
+                key={g.gameId}
+                className="flex items-center justify-between gap-2 rounded-xl border border-[#e6f4ea] bg-[#f9f9f9] p-2"
+              >
+                <div className="text-sm min-w-0">
+                  <p className="font-medium truncate">
+                    Partie #{g.gameId} — {g.status}
+                  </p>
+                  <p className="text-xs text-[#64748b] truncate">
+                    {g.playerB
+                      ? `${g.playerA?.pseudo} vs ${g.playerB.pseudo}`
+                      : inviteeNames
+                        ? `en attente de ${inviteeNames}`
+                        : "en attente d'adversaire"}
+                  </p>
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  {g.status !== "WAITING" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setBlockedDialog(false)
+                        onNavigate("quizGlobal", g.gameId)
+                      }}
+                    >
+                      Reprendre
+                    </Button>
+                  )}
+                  {cancelable && (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      loading={isPending(`cancelGame:${g.gameId}`)}
+                      onClick={() => void cancelMyGame(g.gameId)}
+                    >
+                      Annuler la partie
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </DialogContent>
+      <DialogFooter>
+        <Button variant="outline" onClick={() => setBlockedDialog(false)}>
+          Fermer
+        </Button>
+      </DialogFooter>
+    </Dialog>
+  )
 
   if (!game) {
     return (
@@ -717,7 +787,7 @@ export default function QuizGlobalPage({
                         <Button
                           size="sm"
                           variant="destructive"
-                          disabled={busy}
+                          loading={isPending(`leave:${g.gameId}`)}
                           onClick={() =>
                             setLeaveTarget({
                               gameId: g.gameId,
@@ -757,8 +827,10 @@ export default function QuizGlobalPage({
                       <p className="font-medium truncate">
                         Partie #{g.gameId}
                         {g.status === "WAITING"
-                          ? g.invitedPlayer
-                            ? ` — en attente de ${g.invitedPlayer.pseudo}`
+                          ? (g.pendingInvitees ?? []).length > 0
+                            ? ` — en attente de ${(g.pendingInvitees ?? [])
+                                .map((p) => p.pseudo)
+                                .join(", ")}`
                             : " — en attente d'adversaire"
                           : g.playerB
                             ? ` — ${g.playerA?.pseudo} vs ${g.playerB?.pseudo}`
@@ -780,7 +852,7 @@ export default function QuizGlobalPage({
                         <Button
                           size="sm"
                           variant="destructive"
-                          disabled={busy}
+                          loading={isPending(`cancelGame:${g.gameId}`)}
                           onClick={() => void cancelMyGame(g.gameId)}
                         >
                           Annuler la partie
@@ -790,7 +862,7 @@ export default function QuizGlobalPage({
                         <Button
                           size="sm"
                           variant="destructive"
-                          disabled={busy}
+                          loading={isPending(`leave:${g.gameId}`)}
                           onClick={() =>
                             setLeaveTarget({
                               gameId: g.gameId,
@@ -850,9 +922,18 @@ export default function QuizGlobalPage({
                     : "…"}
                 </p>
               </div>
-              <Button loading={busy} onClick={() => void createGame()}>
+              <Button
+                loading={isPending("create")}
+                onClick={() => void createGame()}
+              >
                 Créer un salon ouvert
               </Button>
+              {myWaitingSalon && (
+                <p className="text-xs text-[#64748b]">
+                  Un salon (#{myWaitingSalon.gameId}) est déjà ouvert : les
+                  invitations rejoignent ce même salon.
+                </p>
+              )}
               <div>
                 <label className="block text-sm text-[#64748b] mb-2">
                   Joueurs en ligne — envoyez une invitation
@@ -880,7 +961,7 @@ export default function QuizGlobalPage({
                             <Button
                               size="sm"
                               variant="ghost"
-                              disabled={busy}
+                              loading={isPending(`cancelInvite:${p.id}`)}
                               onClick={() =>
                                 void cancelInvite(p.id, pendingGameId)
                               }
@@ -891,7 +972,7 @@ export default function QuizGlobalPage({
                             <Button
                               size="sm"
                               variant="default"
-                              disabled={busy}
+                              loading={isPending(`invite:${p.id}`)}
                               onClick={() => void sendInvite(p)}
                             >
                               Envoyer
@@ -946,7 +1027,8 @@ export default function QuizGlobalPage({
                     )}
                     <Button
                       size="sm"
-                      disabled={busy || g.playerA?.id === user?.id}
+                      disabled={g.playerA?.id === user?.id}
+                      loading={isPending(`join:${g.gameId}`)}
                       onClick={() => void joinGame(g.gameId)}
                     >
                       Rejoindre
@@ -981,13 +1063,14 @@ export default function QuizGlobalPage({
             </Button>
             <Button
               variant="destructive"
-              loading={busy}
+              loading={isPending(`leave:${leaveTarget?.gameId}`)}
               onClick={() => void doLeaveActiveGame()}
             >
               Quitter
             </Button>
           </DialogFooter>
         </Dialog>
+        {blockedDialogEl}
       </div>
     )
   }
@@ -1050,7 +1133,7 @@ export default function QuizGlobalPage({
                   <Button
                     variant="destructive"
                     size="sm"
-                    disabled={busy}
+                    loading={isPending(`cancelGame:${game.gameId}`)}
                     onClick={() => void cancelMyGame(game.gameId)}
                   >
                     Annuler la partie
@@ -1336,7 +1419,7 @@ export default function QuizGlobalPage({
                         size="sm"
                         className="gap-2"
                         onClick={() => void startRematch()}
-                        loading={busy}
+                        loading={isPending("rematch")}
                       >
                         <Repeat size={15} /> Revanche
                       </Button>
@@ -1374,83 +1457,7 @@ export default function QuizGlobalPage({
         </SheetContent>
       </Sheet>
 
-      <Dialog open={blockedDialog} onClose={() => setBlockedDialog(false)}>
-        <DialogHeader>
-          <DialogTitle>Partie existante</DialogTitle>
-        </DialogHeader>
-        <DialogContent className="text-sm text-[#334155]">
-          <p className="flex items-start gap-2 rounded-xl bg-amber-50 border border-amber-200 p-3">
-            <AlertTriangle
-              className="mt-0.5 shrink-0 text-amber-600"
-              size={18}
-            />
-            <span>
-              Vous êtes déjà engagé dans une autre partie. Annulez la partie en
-              attente (avant qu'un adversaire ne la rejoigne) ou reprenez la
-              partie en cours.
-            </span>
-          </p>
-          <div className="space-y-2">
-            {myActiveGames.length === 0 && (
-              <p className="text-sm text-[#64748b]">
-                Aucune partie active détectée — recharge en cours…
-              </p>
-            )}
-            {myActiveGames.map((g) => {
-              const isHost = g.playerA?.id === user?.id
-              const cancelable = g.status === "WAITING" && isHost
-              return (
-                <div
-                  key={g.gameId}
-                  className="flex items-center justify-between gap-2 rounded-xl border border-[#e6f4ea] bg-[#f9f9f9] p-2"
-                >
-                  <div className="text-sm min-w-0">
-                    <p className="font-medium truncate">
-                      Partie #{g.gameId} — {g.status}
-                    </p>
-                    <p className="text-xs text-[#64748b] truncate">
-                      {g.playerB
-                        ? `${g.playerA?.pseudo} vs ${g.playerB.pseudo}`
-                        : g.invitedPlayer
-                          ? `en attente de ${g.invitedPlayer.pseudo}`
-                          : "en attente d'adversaire"}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 gap-2">
-                    {g.status !== "WAITING" && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setBlockedDialog(false)
-                          onNavigate("quizGlobal", g.gameId)
-                        }}
-                      >
-                        Reprendre
-                      </Button>
-                    )}
-                    {cancelable && (
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        disabled={busy}
-                        onClick={() => void cancelMyGame(g.gameId)}
-                      >
-                        Annuler la partie
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </DialogContent>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setBlockedDialog(false)}>
-            Fermer
-          </Button>
-        </DialogFooter>
-      </Dialog>
+      {blockedDialogEl}
 
       <Dialog open={confirmQuitOpen} onClose={() => setConfirmQuitOpen(false)}>
         <DialogHeader>

@@ -59,6 +59,7 @@ export type QuizGlobalState = {
     isCorrect: boolean
     pointsAwarded: number
   }> | null
+  pendingInvitees?: Array<{ id: string; pseudo: string }> | null
 }
 
 export type QuizGlobalPublicGame = {
@@ -85,6 +86,7 @@ const STATE = `
   question { id turnNumber theme question isTieBreak correctOption correctText options { A B C D } }
   myAnswer { selectedOption status pointsAwarded }
   results { seat pseudo selectedOption isCorrect pointsAwarded }
+  pendingInvitees { id pseudo }
 `
 
 export const quizGlobalApi = {
@@ -143,10 +145,26 @@ export const quizGlobalApi = {
       { id: gameId },
     )
   },
+  inviter(gameId: number, inviteId: number) {
+    return gql<{ inviterPartieQuizGlobal: QuizGlobalState }>(
+      `mutation($id: Int!, $inviteId: Int!) {
+        inviterPartieQuizGlobal(gameId: $id, inviteId: $inviteId) { ${STATE} }
+      }`,
+      { id: gameId, inviteId },
+    )
+  },
   refuserInvitation(gameId: number) {
     return gql<{ refuserInvitationQuizGlobal: boolean }>(
       `mutation($id: Int!) { refuserInvitationQuizGlobal(gameId: $id) }`,
       { id: gameId },
+    )
+  },
+  annulerInvitation(gameId: number, receiverId: number) {
+    return gql<{ annulerInvitationQuizGlobal: boolean }>(
+      `mutation($id: Int!, $receiverId: Int!) {
+        annulerInvitationQuizGlobal(gameId: $id, receiverId: $receiverId)
+      }`,
+      { id: gameId, receiverId },
     )
   },
   choisirTheme(gameId: number, themeId: number) {
